@@ -16,13 +16,13 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -47,6 +47,8 @@ class MainActivity : ComponentActivity() {
 
     private var conectado by mutableStateOf(false)
     private var placar by mutableStateOf("0 . 0 . 2")
+    private var procura by mutableStateOf("")
+    private var naFila by mutableStateOf(0)
     private var cliente: ClienteTablet? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -59,19 +61,27 @@ class MainActivity : ComponentActivity() {
                 val texto = estado.optString("chamada", "").replace("-", " . ")
                 runOnUiThread { if (texto.isNotEmpty()) placar = texto }
             },
-            aoMudarConexao = { ligado -> runOnUiThread { conectado = ligado } }
+            aoMudarConexao = { ligado -> runOnUiThread { conectado = ligado } },
+            aoConfirmarPonto = {
+                runOnUiThread { naFila = cliente?.pontosNaFila() ?: 0 }
+                vibrarConfirmacao()
+            },
+            aoMudarProcura = { texto -> runOnUiThread { procura = texto } }
         ).also { it.iniciar() }
 
         setContent {
             TelaRelogio(
                 placar = placar,
                 conectado = conectado,
+                procura = procura,
+                naFila = naFila,
                 onPonto = { lado ->
                     vibrar(40)
                     cliente?.enviarRally(lado)
+                    naFila = cliente?.pontosNaFila() ?: 0
                 },
                 onDesfazer = {
-                    vibrar(120)
+                    vibrar(140)
                     cliente?.enviarDesfazer()
                 }
             )
@@ -84,26 +94,41 @@ class MainActivity : ComponentActivity() {
         super.onDestroy()
     }
 
+    /** Toque registrado no relogio. */
     private fun vibrar(duracao: Long) {
-        val vibrador: Vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val gerenciador = getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
-            gerenciador.defaultVibrator
-        } else {
-            @Suppress("DEPRECATION")
-            getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-        }
         runCatching {
-            vibrador.vibrate(
+            vibrador().vibrate(
                 VibrationEffect.createOneShot(duracao, VibrationEffect.DEFAULT_AMPLITUDE)
             )
         }
     }
+
+    /**
+     * Toque diferente para quando o tablet confirma que o ponto entrou.
+     * Com o tablet longe, esta e a unica forma de ter certeza sem olhar.
+     */
+    private fun vibrarConfirmacao() {
+        runCatching {
+            val padrao = longArrayOf(0, 30, 70, 30)
+            vibrador().vibrate(VibrationEffect.createWaveform(padrao, -1))
+        }
+    }
+
+    private fun vibrador(): Vibrator =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            (getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager).defaultVibrator
+        } else {
+            @Suppress("DEPRECATION")
+            getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+        }
 }
 
 @Composable
 private fun TelaRelogio(
     placar: String,
     conectado: Boolean,
+    procura: String,
+    naFila: Int,
     onPonto: (Lado) -> Unit,
     onDesfazer: () -> Unit
 ) {
@@ -127,11 +152,14 @@ private fun TelaRelogio(
                     .background(if (conectado) VERDE else AMBAR, CircleShape)
             )
             Text(
-                text = "  $placar",
+                text = "  " + if (conectado) placar else (procura.ifEmpty { "..." }),
                 color = CINZA,
                 fontSize = 15.sp,
                 fontFamily = FontFamily.Monospace
             )
+            if (naFila > 0) {
+                Text(text = "  +$naFila", color = AMBAR, fontSize = 13.sp)
+            }
         }
 
         Row(
@@ -139,9 +167,9 @@ private fun TelaRelogio(
                 .fillMaxWidth()
                 .weight(1f)
         ) {
-            BotaoLado("ESQ", Modifier.weight(1f)) { onPonto(Lado.ESQUERDA) }
+            BotaoLado("LEFT", Modifier.weight(1f)) { onPonto(Lado.ESQUERDA) }
             Spacer(modifier = Modifier.width(4.dp))
-            BotaoLado("DIR", Modifier.weight(1f)) { onPonto(Lado.DIREITA) }
+            BotaoLado("RIGHT", Modifier.weight(1f)) { onPonto(Lado.DIREITA) }
         }
 
         Box(
@@ -151,7 +179,7 @@ private fun TelaRelogio(
                 .clickable { onDesfazer() },
             contentAlignment = Alignment.Center
         ) {
-            Text(text = "desfazer", color = CINZA, fontSize = 14.sp)
+            Text(text = "undo", color = CINZA, fontSize = 14.sp)
         }
     }
 }
@@ -169,7 +197,7 @@ private fun BotaoLado(rotulo: String, modifier: Modifier, onClique: () -> Unit) 
         Text(
             text = rotulo,
             color = Color.White,
-            fontSize = 26.sp,
+            fontSize = 22.sp,
             fontWeight = FontWeight.Medium
         )
     }

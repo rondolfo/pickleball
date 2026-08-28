@@ -12,8 +12,8 @@ android {
         applicationId = "com.kriptobr.placar.watch"
         minSdk = 30
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1-etapa0"
+        versionCode = 2
+        versionName = "0.2-etapa1e2"
     }
 
     buildTypes {

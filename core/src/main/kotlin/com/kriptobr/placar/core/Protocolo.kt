@@ -14,4 +14,5 @@ object Protocolo {
     const val TIPO_DESFAZER = "DESFAZER"
     const val TIPO_ESTADO = "ESTADO"
     const val TIPO_PING = "PING"
+    const val TIPO_ACK = "ACK"
 }

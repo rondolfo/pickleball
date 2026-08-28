@@ -23,13 +23,11 @@ import org.json.JSONObject
 import java.util.Collections
 
 /**
- * Servidor do tablet.
+ * Servidor do tablet. O tablet e a unica fonte de verdade.
  *
- * O tablet e a unica fonte de verdade. Ele escuta eventos de rally de
- * qualquer cliente e devolve o estado calculado para todos.
- *
- * Anuncia o servico na rede local, para o relogio achar sozinho.
- * Digitar endereco na mao em quadra nao e uma opcao viavel.
+ * Cada evento recebido gera uma confirmacao individual de volta, para o
+ * relogio saber que o ponto entrou e poder vibrar. Sem isso, com o tablet
+ * longe, o jogador nao tem como saber se o toque valeu.
  */
 class ServidorPlacar(
     private val contexto: Context,
@@ -40,10 +38,6 @@ class ServidorPlacar(
 ) {
 
     companion object {
-        const val PORTA = Protocolo.PORTA
-        const val CAMINHO = Protocolo.CAMINHO
-        const val TIPO_SERVICO = Protocolo.TIPO_SERVICO
-        const val NOME_SERVICO = Protocolo.NOME_SERVICO
         private const val TAG = "ServidorPlacar"
     }
 
@@ -55,22 +49,25 @@ class ServidorPlacar(
     private var listenerRegistro: NsdManager.RegistrationListener? = null
 
     fun iniciar() {
-        val motor = embeddedServer(CIO, port = PORTA, host = "0.0.0.0") {
+        val motor = embeddedServer(CIO, port = Protocolo.PORTA, host = "0.0.0.0") {
             install(WebSockets)
             routing {
-                webSocket(CAMINHO) {
+                webSocket(Protocolo.CAMINHO) {
                     sessoes.add(this)
-                    notificarClientes()
+                    aoMudarClientes(sessoes.size)
                     runCatching { send(Frame.Text(estadoJson())) }
                     try {
                         for (quadro in incoming) {
-                            if (quadro is Frame.Text) tratarMensagem(quadro.readText())
+                            if (quadro is Frame.Text) {
+                                val resposta = tratarMensagem(quadro.readText())
+                                if (resposta != null) runCatching { send(Frame.Text(resposta)) }
+                            }
                         }
                     } catch (erro: Exception) {
                         Log.w(TAG, "sessao encerrada: ${erro.message}")
                     } finally {
                         sessoes.remove(this)
-                        notificarClientes()
+                        aoMudarClientes(sessoes.size)
                     }
                 }
             }
@@ -78,7 +75,7 @@ class ServidorPlacar(
         motor.start(wait = false)
         pararServidor = { runCatching { motor.stop(500, 1000) } }
         anunciarNaRede()
-        Log.i(TAG, "servidor no ar na porta $PORTA")
+        Log.i(TAG, "servidor no ar na porta ${Protocolo.PORTA}")
     }
 
     fun parar() {
@@ -87,33 +84,39 @@ class ServidorPlacar(
         pararServidor = null
     }
 
-    /** Envia o estado atual para todos os clientes conectados. */
     fun transmitir(json: String) {
         escopo.launch {
             val copia = synchronized(sessoes) { sessoes.toList() }
-            copia.forEach { sessao ->
-                runCatching { sessao.send(Frame.Text(json)) }
-            }
+            copia.forEach { sessao -> runCatching { sessao.send(Frame.Text(json)) } }
         }
     }
 
-    private fun tratarMensagem(texto: String) {
-        runCatching {
+    /** Devolve a confirmacao a ser enviada de volta, ou null quando nao ha. */
+    private fun tratarMensagem(texto: String): String? {
+        return runCatching {
             val objeto = JSONObject(texto)
             when (objeto.optString("tipo")) {
                 Protocolo.TIPO_RALLY -> {
                     val id = objeto.optString("id")
                     val vencedor = Lado.valueOf(objeto.optString("vencedor"))
-                    if (id.isNotEmpty()) aoReceberRally(id, vencedor)
+                    if (id.isEmpty()) return@runCatching null
+                    aoReceberRally(id, vencedor)
+                    JSONObject().apply {
+                        put("tipo", Protocolo.TIPO_ACK)
+                        put("id", id)
+                    }.toString()
                 }
-                Protocolo.TIPO_DESFAZER -> aoReceberDesfazer()
-                Protocolo.TIPO_PING -> transmitir(estadoJson())
+                Protocolo.TIPO_DESFAZER -> {
+                    aoReceberDesfazer()
+                    null
+                }
+                Protocolo.TIPO_PING -> estadoJson()
+                else -> null
             }
-        }.onFailure { Log.w(TAG, "mensagem invalida: $texto") }
-    }
-
-    private fun notificarClientes() {
-        aoMudarClientes(sessoes.size)
+        }.getOrElse {
+            Log.w(TAG, "mensagem invalida: $texto")
+            null
+        }
     }
 
     private fun anunciarNaRede() {
@@ -121,9 +124,9 @@ class ServidorPlacar(
         nsdManager = gerenciador
 
         val info = NsdServiceInfo().apply {
-            serviceName = NOME_SERVICO
-            serviceType = TIPO_SERVICO
-            port = PORTA
+            serviceName = Protocolo.NOME_SERVICO
+            serviceType = Protocolo.TIPO_SERVICO
+            port = Protocolo.PORTA
         }
 
         val listener = object : NsdManager.RegistrationListener {
