@@ -40,6 +40,8 @@ val FUNDO_MENU = Color(0xFF1C1C1A)
 @Composable
 fun TelaPlacar(
     estado: EstadoJogo,
+    nomeEsquerda: String,
+    nomeDireita: String,
     idiomaUi: String,
     idiomaVoz: String,
     conectado: Boolean,
@@ -62,10 +64,10 @@ fun TelaPlacar(
                 .weight(1f)
                 .fillMaxWidth()
         ) {
-            LadoDoPlacar(Lado.ESQUERDA, estado, idiomaUi, travado, Modifier.weight(1f),
-                onPonto = { onPonto(Lado.ESQUERDA) }, onDestravar = onDestravar)
-            LadoDoPlacar(Lado.DIREITA, estado, idiomaUi, travado, Modifier.weight(1f),
-                onPonto = { onPonto(Lado.DIREITA) }, onDestravar = onDestravar)
+            LadoDoPlacar(Lado.ESQUERDA, nomeEsquerda, estado, idiomaUi, travado,
+                Modifier.weight(1f), onPonto = { onPonto(Lado.ESQUERDA) }, onDestravar = onDestravar)
+            LadoDoPlacar(Lado.DIREITA, nomeDireita, estado, idiomaUi, travado,
+                Modifier.weight(1f), onPonto = { onPonto(Lado.DIREITA) }, onDestravar = onDestravar)
         }
 
         Rodape(
@@ -86,6 +88,7 @@ fun TelaPlacar(
 @Composable
 private fun LadoDoPlacar(
     lado: Lado,
+    rotulo: String,
     estado: EstadoJogo,
     idiomaUi: String,
     travado: Boolean,
@@ -118,7 +121,7 @@ private fun LadoDoPlacar(
             verticalArrangement = Arrangement.Center
         ) {
             Text(
-                text = Textos.get(if (lado == Lado.ESQUERDA) "esquerda" else "direita", idiomaUi),
+                text = rotulo,
                 color = if (sacando) VERDE else CINZA_TEXTO,
                 fontSize = tamanhoRotulo,
                 letterSpacing = 2.sp

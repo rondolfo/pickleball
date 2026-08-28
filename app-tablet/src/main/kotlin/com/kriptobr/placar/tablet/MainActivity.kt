@@ -31,27 +31,43 @@ class MainActivity : ComponentActivity() {
         private const val PREFS = "placar"
         private const val CHAVE_IDIOMA_UI = "idioma_ui"
         private const val CHAVE_IDIOMA_VOZ = "idioma_voz"
-        private const val SEGUNDOS_DESTRAVADO = 8_000L
+        private const val MS_DESTRAVADO = 8_000L
     }
 
     private val eventos: SnapshotStateList<Evento> = mutableStateListOf()
+    private val jogadores: SnapshotStateList<Jogador> = mutableStateListOf()
     private val idsVistos = mutableSetOf<String>()
     private val relogioDeTrava = Handler(Looper.getMainLooper())
     private var tarefaDeTrava: Runnable? = null
 
+    private lateinit var repositorio: Repositorio
+    private lateinit var voz: Voz
+    private var servidor: ServidorPlacar? = null
+
+    private var idPartida by mutableStateOf(UUID.randomUUID().toString())
+    private var inicioPartida by mutableStateOf(System.currentTimeMillis())
+    private var duplaEsquerda by mutableStateOf(Dupla())
+    private var duplaDireita by mutableStateOf(Dupla())
     private var primeiroSaque by mutableStateOf(Lado.ESQUERDA)
+
     private var clientes by mutableStateOf(0)
     private var enderecoLocal by mutableStateOf("")
     private var travado by mutableStateOf(true)
-    private var menuAberto by mutableStateOf(false)
-    private var confirmandoNovoGame by mutableStateOf(false)
-    private var escolhendoPrimeiroSaque by mutableStateOf(false)
     private var idiomaUi by mutableStateOf(Textos.EN)
     private var idiomaVoz by mutableStateOf(Textos.EN)
     private var vozIndisponivel by mutableStateOf(false)
+    private var versaoFotos by mutableStateOf(0)
 
-    private var servidor: ServidorPlacar? = null
-    private lateinit var voz: Voz
+    private var menuAberto by mutableStateOf(false)
+    private var telaJogadores by mutableStateOf(false)
+    private var telaDuplas by mutableStateOf(false)
+    private var telaHistorico by mutableStateOf(false)
+    private var confirmandoNovoGame by mutableStateOf(false)
+    private var escolhendoPrimeiroSaque by mutableStateOf(false)
+    private var partidaExibida by mutableStateOf<Partida?>(null)
+    private var partidaEncerrada by mutableStateOf<Partida?>(null)
+    private var avisoResultado by mutableStateOf("")
+    private var historico by mutableStateOf<List<Partida>>(emptyList())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -64,8 +80,11 @@ class MainActivity : ComponentActivity() {
                 WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         }
 
+        repositorio = Repositorio(this)
         carregarPreferencias()
+        jogadores.addAll(repositorio.carregarJogadores())
         enderecoLocal = ipLocal()
+        restaurarPartidaEmAndamento()
 
         voz = Voz(this).also { motor ->
             motor.iniciar {
@@ -87,15 +106,14 @@ class MainActivity : ComponentActivity() {
 
             TelaPlacar(
                 estado = estado,
+                nomeEsquerda = nomeDoLado(Lado.ESQUERDA),
+                nomeDireita = nomeDoLado(Lado.DIREITA),
                 idiomaUi = idiomaUi,
                 idiomaVoz = idiomaVoz,
                 conectado = clientes > 0,
                 endereco = enderecoLocal,
                 travado = travado,
-                onPonto = { lado ->
-                    registrarRally(lado, Origem.TOQUE)
-                    adiarTrava()
-                },
+                onPonto = { lado -> registrarRally(lado, Origem.TOQUE); adiarTrava() },
                 onDesfazer = { desfazer(); adiarTrava() },
                 onDestravar = { destravar() },
                 onAbrirMenu = { menuAberto = true },
@@ -110,6 +128,13 @@ class MainActivity : ComponentActivity() {
                     vozIndisponivel = vozIndisponivel,
                     onNovoGame = { menuAberto = false; confirmandoNovoGame = true },
                     onInverter = { inverterLados(); menuAberto = false },
+                    onDuplas = { menuAberto = false; telaDuplas = true },
+                    onJogadores = { menuAberto = false; telaJogadores = true },
+                    onHistorico = {
+                        historico = repositorio.listarPartidas()
+                        menuAberto = false
+                        telaHistorico = true
+                    },
                     onTrocarIdiomaVoz = { trocarIdiomaVoz() },
                     onTrocarIdiomaTela = { trocarIdiomaTela() },
                     onRepetir = { voz.repetir(); menuAberto = false },
@@ -132,6 +157,64 @@ class MainActivity : ComponentActivity() {
                     novoGame(lado)
                     escolhendoPrimeiroSaque = false
                 }
+            }
+
+            if (telaJogadores) {
+                TelaJogadores(
+                    jogadores = jogadores.toList(),
+                    idiomaUi = idiomaUi,
+                    versaoFotos = versaoFotos,
+                    onSalvar = { salvarJogador(it) },
+                    onExcluir = { excluirJogador(it) },
+                    onFechar = { telaJogadores = false }
+                )
+            }
+
+            if (telaDuplas) {
+                TelaDuplas(
+                    jogadores = jogadores.toList(),
+                    duplaEsquerda = duplaEsquerda,
+                    duplaDireita = duplaDireita,
+                    idiomaUi = idiomaUi,
+                    versaoFotos = versaoFotos,
+                    onMudar = { lado, dupla ->
+                        if (lado == Lado.ESQUERDA) duplaEsquerda = dupla else duplaDireita = dupla
+                        salvarAndamento()
+                    },
+                    onFechar = { telaDuplas = false }
+                )
+            }
+
+            if (telaHistorico) {
+                TelaHistorico(
+                    partidas = historico,
+                    jogadores = jogadores.toList(),
+                    idiomaUi = idiomaUi,
+                    onAbrir = { partidaExibida = it },
+                    onFechar = { telaHistorico = false }
+                )
+            }
+
+            val paraMostrar = partidaEncerrada ?: partidaExibida
+            if (paraMostrar != null) {
+                TelaResultado(
+                    partida = paraMostrar,
+                    jogadores = jogadores.toList(),
+                    idiomaUi = idiomaUi,
+                    aviso = avisoResultado,
+                    mostrarNovoGame = partidaEncerrada != null,
+                    onEmail = { enviarEmail(paraMostrar) },
+                    onNovoGame = {
+                        partidaEncerrada = null
+                        avisoResultado = ""
+                        escolhendoPrimeiroSaque = true
+                    },
+                    onFechar = {
+                        partidaEncerrada = null
+                        partidaExibida = null
+                        avisoResultado = ""
+                    }
+                )
             }
         }
     }
@@ -159,11 +242,16 @@ class MainActivity : ComponentActivity() {
             if (ultimo != null && agora - ultimo.ts < 1000L) return@runOnUiThread
 
             val anterior = Regras.derivar(eventos, primeiroSaque)
+            if (anterior.encerrado) return@runOnUiThread
+
             eventos.add(Evento(id = id, vencedor = vencedor, origem = origem, ts = agora))
             val novo = Regras.derivar(eventos, primeiroSaque)
 
             voz.anunciar(anterior, novo)
             servidor?.transmitir(estadoJson())
+            salvarAndamento()
+
+            if (novo.encerrado) encerrarPartida()
         }
     }
 
@@ -172,28 +260,114 @@ class MainActivity : ComponentActivity() {
         voz.cancelarPendente()
         val removido = eventos.removeAt(eventos.lastIndex)
         idsVistos.remove(removido.id)
+        partidaEncerrada = null
         servidor?.transmitir(estadoJson())
+        salvarAndamento()
+    }
+
+    private fun encerrarPartida() {
+        val partida = montarPartida(fim = System.currentTimeMillis(), completa = true)
+        repositorio.salvarPartida(partida)
+        repositorio.limparAtual()
+        partidaEncerrada = partida
+        avisoResultado = ""
     }
 
     private fun novoGame(saqueInicial: Lado) {
+        val emAndamento = eventos.isNotEmpty() && partidaEncerrada == null
+        if (emAndamento) {
+            repositorio.salvarPartida(montarPartida(fim = null, completa = false))
+        }
         voz.cancelarPendente()
         eventos.clear()
         idsVistos.clear()
+        partidaEncerrada = null
+        avisoResultado = ""
+        idPartida = UUID.randomUUID().toString()
+        inicioPartida = System.currentTimeMillis()
         primeiroSaque = saqueInicial
         travado = true
+        repositorio.limparAtual()
         servidor?.transmitir(estadoJson())
     }
 
-    /**
-     * Inverter lados espelha o log inteiro. O placar, o saque e o numero do
-     * sacador acompanham, entao a tela continua correta depois da troca.
-     */
     private fun inverterLados() {
         val espelhados = eventos.map { it.copy(vencedor = it.vencedor.oposto()) }
         eventos.clear()
         eventos.addAll(espelhados)
         primeiroSaque = primeiroSaque.oposto()
+        val guardada = duplaEsquerda
+        duplaEsquerda = duplaDireita
+        duplaDireita = guardada
         servidor?.transmitir(estadoJson())
+        salvarAndamento()
+    }
+
+    private fun montarPartida(fim: Long?, completa: Boolean) = Partida(
+        id = idPartida,
+        inicio = inicioPartida,
+        fim = fim,
+        primeiroSaque = primeiroSaque,
+        duplaEsquerda = duplaEsquerda,
+        duplaDireita = duplaDireita,
+        eventos = eventos.toList(),
+        completa = completa
+    )
+
+    private fun salvarAndamento() {
+        repositorio.salvarAtual(montarPartida(fim = null, completa = false))
+    }
+
+    private fun restaurarPartidaEmAndamento() {
+        val salva = repositorio.carregarAtual() ?: return
+        idPartida = salva.id
+        inicioPartida = salva.inicio
+        primeiroSaque = salva.primeiroSaque
+        duplaEsquerda = salva.duplaEsquerda
+        duplaDireita = salva.duplaDireita
+        eventos.addAll(salva.eventos)
+        salva.eventos.forEach { idsVistos.add(it.id) }
+    }
+
+    // ---------- jogadores ----------
+
+    private fun salvarJogador(jogador: Jogador) {
+        val indice = jogadores.indexOfFirst { it.id == jogador.id }
+        if (indice >= 0) jogadores[indice] = jogador else jogadores.add(jogador)
+        jogadores.sortBy { it.nome.lowercase() }
+        repositorio.salvarJogadores(jogadores.toList())
+        versaoFotos += 1
+    }
+
+    private fun excluirJogador(jogador: Jogador) {
+        jogadores.removeAll { it.id == jogador.id }
+        runCatching { repositorio.arquivoFoto(jogador.id).delete() }
+        repositorio.salvarJogadores(jogadores.toList())
+        if (duplaEsquerda.a == jogador.id) duplaEsquerda = duplaEsquerda.copy(a = null)
+        if (duplaEsquerda.b == jogador.id) duplaEsquerda = duplaEsquerda.copy(b = null)
+        if (duplaDireita.a == jogador.id) duplaDireita = duplaDireita.copy(a = null)
+        if (duplaDireita.b == jogador.id) duplaDireita = duplaDireita.copy(b = null)
+        versaoFotos += 1
+    }
+
+    private fun nomeDoLado(lado: Lado): String {
+        val dupla = if (lado == Lado.ESQUERDA) duplaEsquerda else duplaDireita
+        if (dupla.vazia) {
+            return Textos.get(if (lado == Lado.ESQUERDA) "esquerda" else "direita", idiomaUi)
+        }
+        return ResumoEmail.nomeDupla(dupla, jogadores.toList(), idiomaUi)
+    }
+
+    // ---------- email ----------
+
+    private fun enviarEmail(partida: Partida) {
+        val lista = jogadores.toList()
+        if (ResumoEmail.destinatarios(partida, lista).isEmpty()) {
+            avisoResultado = Textos.get("sem_email", idiomaUi)
+            return
+        }
+        val abriu = ResumoEmail.abrir(this, partida, lista, idiomaUi)
+        avisoResultado = if (abriu) "" else Textos.get("sem_app_email", idiomaUi)
     }
 
     // ---------- travamento ----------
@@ -207,7 +381,7 @@ class MainActivity : ComponentActivity() {
         tarefaDeTrava?.let { relogioDeTrava.removeCallbacks(it) }
         val tarefa = Runnable { travado = true }
         tarefaDeTrava = tarefa
-        relogioDeTrava.postDelayed(tarefa, SEGUNDOS_DESTRAVADO)
+        relogioDeTrava.postDelayed(tarefa, MS_DESTRAVADO)
     }
 
     // ---------- idiomas ----------

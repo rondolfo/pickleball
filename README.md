@@ -2,74 +2,90 @@
 
 Sistema de placar para pickleball em duplas tradicional, composto por dois aplicativos Android que conversam pela rede local.
 
-Etapas 1 e 2 entregues. A versao ja pode ir para a quadra.
+Etapas 1, 2 e 4 entregues.
 
 ## O que funciona
 
 Regras
 - Duplas tradicional, inicio em 0-0-2, troca de sacador, troca de saque
 - Vitoria por 11 com vantagem de 2
-- Lado do saque derivado da pontuacao, par pela direita e impar pela esquerda
+- Lado do saque derivado da pontuacao
 - Destaque de ponto de jogo
 
 Tablet
 - Placar em numeros grandes, com moldura indicando quem saca
-- Numero do sacador e lado do saque
-- Chamada 4-2-1 no rodape
+- Nome das duplas na tela quando os jogadores estao definidos
 - Voz em ingles e portugues, com troca em um toque
 - Idioma da tela separado do idioma da voz
-- Novo game, com confirmacao e escolha de quem saca primeiro
-- Inverter lados
-- Travamento contra toque acidental, com toque duplo destravando por 8 segundos
+- Novo game com confirmacao e escolha de quem saca primeiro
+- Inverter lados, que espelha tambem os nomes das duplas
+- Travamento contra toque acidental
 - Repetir a ultima chamada tocando no placar do rodape
+
+Jogadores
+- Cadastro com nome, nome curto, e-mail, sexo e foto
+- Foto opcional, escolhida da galeria sem exigir permissao
+- Quem nao tem foto aparece com circulo colorido e iniciais
+- Sexo e apenas informativo por enquanto
+
+Partidas
+- Toda partida encerrada e salva automaticamente
+- Partida abandonada ao comecar outro game e salva como incompleta
+- Recuperacao apos reinicio: o placar volta exatamente onde parou
+- Historico com data, duplas e placar, e detalhe com estatisticas
+
+Estatisticas
+- Total de rallies e rallies ganhos por dupla
+- Rallies ganhos recebendo, que e o que realmente diferencia no formato tradicional
+- Turnos de saque encerrados sem pontuar
+- Maior sequencia de pontos consecutivos
+- Viradas no placar
+
+E-mail
+- Resumo pronto com placar, duracao e estatisticas
+- Abre o aplicativo de e-mail preenchido, com os participantes em copia
+- Nada e enviado sozinho: voce confere e toca em enviar
+- Sem senha, sem servidor e sem autenticacao para manter
 
 Relogio
 - Dois botoes grandes e desfazer
-- Vibracao no toque e vibracao diferente quando o tablet confirma
-- Fila de pontos, que so sao descartados apos confirmacao
-- Indicador de quantos pontos aguardam envio
+- Vibracao no toque e vibracao dupla quando o tablet confirma
+- Fila de pontos, descartados apenas apos confirmacao
+- Contador de pontos aguardando envio
 
 Conexao
-- Tres caminhos em cascata: endereco salvo da ultima vez, anuncio na rede local e varredura da faixa de enderecos
-- Reconexao automatica e silenciosa
-- Reenvio seguro, porque cada evento tem identificador e o tablet ignora repetidos
+- Tres caminhos em cascata: endereco salvo, anuncio na rede e varredura da faixa
+- Reconexao automatica e reenvio seguro
+
+## Onde ficam as coisas
+
+Tudo fica atras da engrenagem no canto inferior direito do tablet: novo game, inverter lados, definir as duplas, jogadores, historico e idiomas.
+
+O aplicativo continua abrindo pronto para jogar. Cadastro nunca e obrigatorio.
+
+## Armazenamento
+
+Arquivos JSON dentro do proprio aplicativo, sem banco de dados com processamento de anotacoes. Nesta escala a diferenca de desempenho e nula e o build fica mais simples. As fotos ficam reduzidas a 256 pixels.
+
+Nao existe conta, login, nuvem nem sincronizacao. Os dados sao do grupo e ficam no tablet.
 
 ## O que ainda nao existe
 
-Controle Bluetooth, cadastro de jogadores, relatorio de partidas, tela de status, modo de teste e rodizio.
-
-## Voz
-
-Os termos ficam em ingles nos dois idiomas, porque e o vocabulario que os jogadores usam. Apenas os numeros mudam de idioma.
-
-Em portugues, os termos sao escritos foneticamente no arquivo Voz.kt, para o motor de voz nao pronunciar letra por letra. Se algo soar estranho em quadra, e so ajustar aquelas linhas.
-
-A voz em ingles ja vem instalada na maioria dos tablets. A voz em portugues normalmente precisa ser baixada nas configuracoes do Android, em Conversao de texto em fala. O aplicativo avisa no menu quando a voz do idioma escolhido nao esta disponivel.
-
-## Como usar na quadra
-
-1. Abra o aplicativo no tablet e deixe na mesa
-2. Abra o aplicativo no relogio e espere o ponto ficar verde
-3. Toque no lado que ganhou o rally
-4. Para comecar outro game, use a engrenagem no canto inferior direito do tablet
-
-A tela do tablet nasce travada. Para marcar ponto pela tela, toque duas vezes para destravar. Ela volta a travar sozinha depois de alguns segundos sem uso.
+Controle Bluetooth, tela de status, modo de teste, rodizio e estatisticas acumuladas por jogador.
 
 ## Estrutura
 
 ```
-core/         regras do jogo em Kotlin puro, usadas pelos dois aplicativos
-app-tablet/   servidor, placar visual e voz
+core/         regras, protocolo e estatisticas em Kotlin puro
+app-tablet/   servidor, placar, voz, cadastro, historico e e-mail
 app-watch/    controle remoto no Galaxy Watch Ultra
 ```
 
-## Como gerar os APKs
+## Como gerar e instalar
 
-Envie os arquivos para a branch main. O fluxo build compila sozinho e publica os artefatos apk-tablet e apk-relogio na aba Actions.
+Envie para a branch main e o fluxo build publica os artefatos apk-tablet e apk-relogio na aba Actions.
 
-## Como instalar
-
-O do tablet e um toque no arquivo. O do relogio usa adb. O passo a passo esta em INSTALACAO.md. Como o pareamento ja foi feito uma vez, agora basta:
+O do tablet e um toque no arquivo. O do relogio:
 
 ```
 adb connect ENDERECO_DO_RELOGIO
@@ -78,6 +94,6 @@ adb install -r app-watch-debug.apk
 
 ## Limitacoes conhecidas
 
-- O placar nao e gravado, entao reiniciar o aplicativo zera o jogo
-- Nao ha cadastro de jogadores nem relatorio
 - A tela do relogio esta apenas em ingles
+- Nao ha estatistica acumulada por jogador, apenas por partida
+- O e-mail sai em texto simples

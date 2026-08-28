@@ -28,6 +28,9 @@ fun MenuAjustes(
     vozIndisponivel: Boolean,
     onNovoGame: () -> Unit,
     onInverter: () -> Unit,
+    onDuplas: () -> Unit,
+    onJogadores: () -> Unit,
+    onHistorico: () -> Unit,
     onTrocarIdiomaVoz: () -> Unit,
     onTrocarIdiomaTela: () -> Unit,
     onRepetir: () -> Unit,
@@ -58,6 +61,9 @@ fun MenuAjustes(
 
             ItemMenu(Textos.get("novo_game", idiomaUi), onNovoGame)
             ItemMenu(Textos.get("inverter", idiomaUi), onInverter)
+            ItemMenu(Textos.get("montar", idiomaUi), onDuplas)
+            ItemMenu(Textos.get("jogadores", idiomaUi), onJogadores)
+            ItemMenu(Textos.get("historico", idiomaUi), onHistorico)
             ItemMenu(
                 Textos.get("idioma_voz", idiomaUi) + "   " + idiomaVoz.uppercase(),
                 onTrocarIdiomaVoz
