@@ -103,7 +103,15 @@ object Regras {
      * Desfazer e apenas remover o ultimo evento e chamar isto de novo.
      */
     fun derivar(eventos: List<Evento>, primeiroSaque: Lado = Lado.ESQUERDA): EstadoJogo =
-        eventos.fold(estadoInicial(primeiroSaque)) { acumulado, evento ->
-            aplicar(acumulado, evento)
-        }
+        derivarDe(eventos, estadoInicial(primeiroSaque))
+
+    /**
+     * Deriva a partir de um estado base em vez do zero.
+     *
+     * Serve para a correcao manual: em vez de inventar eventos falsos para
+     * chegar num placar, o placar corrigido vira o novo ponto de partida e
+     * o log recomeca dali.
+     */
+    fun derivarDe(eventos: List<Evento>, base: EstadoJogo): EstadoJogo =
+        eventos.fold(base) { acumulado, evento -> aplicar(acumulado, evento) }
 }

@@ -66,6 +66,21 @@ class Voz(private val contexto: Context) {
         if (ultimaFala.isNotEmpty()) falarAgora(ultimaFala)
     }
 
+    /**
+     * Fala um placar de exemplo no idioma pedido, sem alterar o idioma
+     * configurado. Usado pelo modo de teste, para ajustar volume e entonacao.
+     */
+    fun falarExemplo(idiomaAlvo: String) {
+        if (!pronto) return
+        val guardado = idioma
+        idioma = idiomaAlvo
+        aplicarIdioma()
+        val exemplo = listOf(termo("side_out"), "4, 2, 1", termo("game_point")).joinToString(", ")
+        falarAgora(exemplo)
+        idioma = guardado
+        executor.postDelayed({ aplicarIdioma() }, 3000L)
+    }
+
     fun cancelarPendente() {
         pendente?.let { executor.removeCallbacks(it) }
         pendente = null

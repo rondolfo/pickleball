@@ -46,6 +46,7 @@ private val FUNDO_LADO = Color(0xFF1C1C1A)
 class MainActivity : ComponentActivity() {
 
     private var conectado by mutableStateOf(false)
+    private var idioma by mutableStateOf("en")
     private var placar by mutableStateOf("0 . 0 . 2")
     private var procura by mutableStateOf("")
     private var naFila by mutableStateOf(0)
@@ -59,7 +60,11 @@ class MainActivity : ComponentActivity() {
             contexto = this,
             aoReceberEstado = { estado ->
                 val texto = estado.optString("chamada", "").replace("-", " . ")
-                runOnUiThread { if (texto.isNotEmpty()) placar = texto }
+                val idiomaDoTablet = estado.optString("idioma", "en")
+                runOnUiThread {
+                    if (texto.isNotEmpty()) placar = texto
+                    if (idiomaDoTablet.isNotEmpty()) idioma = idiomaDoTablet
+                }
             },
             aoMudarConexao = { ligado -> runOnUiThread { conectado = ligado } },
             aoConfirmarPonto = {
@@ -72,6 +77,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             TelaRelogio(
                 placar = placar,
+                idioma = idioma,
                 conectado = conectado,
                 procura = procura,
                 naFila = naFila,
@@ -126,6 +132,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun TelaRelogio(
     placar: String,
+    idioma: String,
     conectado: Boolean,
     procura: String,
     naFila: Int,
@@ -167,9 +174,15 @@ private fun TelaRelogio(
                 .fillMaxWidth()
                 .weight(1f)
         ) {
-            BotaoLado("LEFT", Modifier.weight(1f)) { onPonto(Lado.ESQUERDA) }
+            BotaoLado(
+                if (idioma == "pt") "ESQ" else "LEFT",
+                Modifier.weight(1f)
+            ) { onPonto(Lado.ESQUERDA) }
             Spacer(modifier = Modifier.width(4.dp))
-            BotaoLado("RIGHT", Modifier.weight(1f)) { onPonto(Lado.DIREITA) }
+            BotaoLado(
+                if (idioma == "pt") "DIR" else "RIGHT",
+                Modifier.weight(1f)
+            ) { onPonto(Lado.DIREITA) }
         }
 
         Box(
@@ -179,7 +192,11 @@ private fun TelaRelogio(
                 .clickable { onDesfazer() },
             contentAlignment = Alignment.Center
         ) {
-            Text(text = "undo", color = CINZA, fontSize = 14.sp)
+            Text(
+                text = if (idioma == "pt") "desfazer" else "undo",
+                color = CINZA,
+                fontSize = 14.sp
+            )
         }
     }
 }

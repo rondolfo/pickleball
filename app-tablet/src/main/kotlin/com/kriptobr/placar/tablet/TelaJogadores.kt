@@ -13,8 +13,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -147,10 +150,13 @@ private fun FormularioJogador(
         }
     }
 
+    // o teclado do Android cobre o rodape do formulario em tablet deitado.
+    // imePadding empurra o conteudo para cima e a rolagem garante o resto.
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFA000000)),
+            .background(Color(0xFA000000))
+            .imePadding(),
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -158,7 +164,8 @@ private fun FormularioJogador(
                 .background(FUNDO_MENU, RoundedCornerShape(16.dp))
                 .border(2.dp, CINZA_BORDA, RoundedCornerShape(16.dp))
                 .padding(26.dp)
-                .width(460.dp),
+                .width(460.dp)
+                .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {

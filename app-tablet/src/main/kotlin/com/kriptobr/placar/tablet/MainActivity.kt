@@ -1,9 +1,11 @@
 package com.kriptobr.placar.tablet
 
 import android.content.Context
+import android.media.AudioManager
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.view.KeyEvent
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -17,12 +19,18 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.kriptobr.placar.core.EstadoJogo
 import com.kriptobr.placar.core.Evento
+import com.kriptobr.placar.core.Formacao
 import com.kriptobr.placar.core.Lado
+import com.kriptobr.placar.core.MemoriaRodizio
 import com.kriptobr.placar.core.Origem
 import com.kriptobr.placar.core.Regras
+import com.kriptobr.placar.core.Rodizio
 import org.json.JSONObject
 import java.net.Inet4Address
 import java.net.NetworkInterface
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import java.util.UUID
 
 class MainActivity : ComponentActivity() {
@@ -36,6 +44,7 @@ class MainActivity : ComponentActivity() {
 
     private val eventos: SnapshotStateList<Evento> = mutableStateListOf()
     private val jogadores: SnapshotStateList<Jogador> = mutableStateListOf()
+    private val escalacoes: SnapshotStateList<Escalacao> = mutableStateListOf()
     private val idsVistos = mutableSetOf<String>()
     private val relogioDeTrava = Handler(Looper.getMainLooper())
     private var tarefaDeTrava: Runnable? = null
@@ -49,21 +58,35 @@ class MainActivity : ComponentActivity() {
     private var duplaEsquerda by mutableStateOf(Dupla())
     private var duplaDireita by mutableStateOf(Dupla())
     private var primeiroSaque by mutableStateOf(Lado.ESQUERDA)
+    private var estadoBase by mutableStateOf<EstadoJogo?>(null)
+
+    private var presentes by mutableStateOf<Set<String>>(emptySet())
+    private var memoriaRodizio by mutableStateOf(MemoriaRodizio())
+    private var sugestao by mutableStateOf<Formacao?>(null)
 
     private var clientes by mutableStateOf(0)
+    private var ultimoContato by mutableStateOf<Long?>(null)
     private var enderecoLocal by mutableStateOf("")
     private var travado by mutableStateOf(true)
     private var idiomaUi by mutableStateOf(Textos.EN)
     private var idiomaVoz by mutableStateOf(Textos.EN)
     private var vozIndisponivel by mutableStateOf(false)
     private var versaoFotos by mutableStateOf(0)
+    private var ultimaTecla by mutableStateOf("")
+    private var codigoUltimaTecla by mutableStateOf<Int?>(null)
+    private var tempoIdaEVolta by mutableStateOf<Long?>(null)
 
     private var menuAberto by mutableStateOf(false)
+    private var telaNovoJogo by mutableStateOf(false)
+    private var telaSubstituicao by mutableStateOf(false)
     private var telaJogadores by mutableStateOf(false)
-    private var telaDuplas by mutableStateOf(false)
+    private var telaRodizio by mutableStateOf(false)
     private var telaHistorico by mutableStateOf(false)
+    private var telaEstatisticas by mutableStateOf(false)
+    private var telaStatus by mutableStateOf(false)
+    private var telaTeste by mutableStateOf(false)
+    private var telaCorrecao by mutableStateOf(false)
     private var confirmandoNovoGame by mutableStateOf(false)
-    private var escolhendoPrimeiroSaque by mutableStateOf(false)
     private var partidaExibida by mutableStateOf<Partida?>(null)
     private var partidaEncerrada by mutableStateOf<Partida?>(null)
     private var avisoResultado by mutableStateOf("")
@@ -83,6 +106,9 @@ class MainActivity : ComponentActivity() {
         repositorio = Repositorio(this)
         carregarPreferencias()
         jogadores.addAll(repositorio.carregarJogadores())
+        val (memoria, presentesSalvos) = repositorio.carregarRodizio()
+        memoriaRodizio = memoria
+        presentes = presentesSalvos
         enderecoLocal = ipLocal()
         restaurarPartidaEmAndamento()
 
@@ -98,11 +124,19 @@ class MainActivity : ComponentActivity() {
             aoReceberRally = { id, vencedor -> registrarRally(vencedor, Origem.RELOGIO, id) },
             aoReceberDesfazer = { runOnUiThread { desfazer() } },
             estadoJson = { estadoJson() },
-            aoMudarClientes = { total -> runOnUiThread { clientes = total } }
+            aoMudarClientes = { total -> runOnUiThread { clientes = total } },
+            aoReceberEco = { enviado ->
+                val agora = System.currentTimeMillis()
+                runOnUiThread { tempoIdaEVolta = agora - enviado }
+            },
+            aoTerContato = {
+                val agora = System.currentTimeMillis()
+                runOnUiThread { ultimoContato = agora }
+            }
         ).also { it.iniciar() }
 
         setContent {
-            val estado = Regras.derivar(eventos, primeiroSaque)
+            val estado = estadoAtual()
 
             TelaPlacar(
                 estado = estado,
@@ -128,13 +162,31 @@ class MainActivity : ComponentActivity() {
                     vozIndisponivel = vozIndisponivel,
                     onNovoGame = { menuAberto = false; confirmandoNovoGame = true },
                     onInverter = { inverterLados(); menuAberto = false },
-                    onDuplas = { menuAberto = false; telaDuplas = true },
+                    onDuplas = { menuAberto = false; telaNovoJogo = true },
+                    onSubstituir = { menuAberto = false; telaSubstituicao = true },
+                    onRodizio = {
+                        sugestao = calcularSugestao(false)
+                        menuAberto = false
+                        telaRodizio = true
+                    },
                     onJogadores = { menuAberto = false; telaJogadores = true },
                     onHistorico = {
                         historico = repositorio.listarPartidas()
                         menuAberto = false
                         telaHistorico = true
                     },
+                    onEstatisticas = {
+                        historico = repositorio.listarPartidas()
+                        menuAberto = false
+                        telaEstatisticas = true
+                    },
+                    onCorrigir = { menuAberto = false; telaCorrecao = true },
+                    onStatus = {
+                        historico = repositorio.listarPartidas(1)
+                        menuAberto = false
+                        telaStatus = true
+                    },
+                    onTeste = { menuAberto = false; telaTeste = true },
                     onTrocarIdiomaVoz = { trocarIdiomaVoz() },
                     onTrocarIdiomaTela = { trocarIdiomaTela() },
                     onRepetir = { voz.repetir(); menuAberto = false },
@@ -147,16 +199,43 @@ class MainActivity : ComponentActivity() {
                     mensagem = Textos.get("confirmar_novo", idiomaUi),
                     textoSim = Textos.get("sim", idiomaUi),
                     textoNao = Textos.get("nao", idiomaUi),
-                    onSim = { confirmandoNovoGame = false; escolhendoPrimeiroSaque = true },
+                    onSim = { confirmandoNovoGame = false; telaNovoJogo = true },
                     onNao = { confirmandoNovoGame = false }
                 )
             }
 
-            if (escolhendoPrimeiroSaque) {
-                DialogoPrimeiroSaque(idiomaUi = idiomaUi) { lado ->
-                    novoGame(lado)
-                    escolhendoPrimeiroSaque = false
-                }
+            if (telaNovoJogo) {
+                TelaNovoJogo(
+                    jogadores = jogadores.toList(),
+                    duplaEsquerda = duplaEsquerda,
+                    duplaDireita = duplaDireita,
+                    idiomaUi = idiomaUi,
+                    versaoFotos = versaoFotos,
+                    onMudar = { lado, dupla ->
+                        if (lado == Lado.ESQUERDA) duplaEsquerda = dupla else duplaDireita = dupla
+                        salvarAndamento()
+                    },
+                    onComecar = { saque ->
+                        novoGame(saque)
+                        telaNovoJogo = false
+                    },
+                    onFechar = { telaNovoJogo = false }
+                )
+            }
+
+            if (telaSubstituicao) {
+                TelaSubstituicao(
+                    jogadores = jogadores.toList(),
+                    duplaEsquerda = duplaEsquerda,
+                    duplaDireita = duplaDireita,
+                    idiomaUi = idiomaUi,
+                    versaoFotos = versaoFotos,
+                    onSubstituir = { lado, posicao, entrando ->
+                        substituir(lado, posicao, entrando)
+                        telaSubstituicao = false
+                    },
+                    onFechar = { telaSubstituicao = false }
+                )
             }
 
             if (telaJogadores) {
@@ -170,18 +249,26 @@ class MainActivity : ComponentActivity() {
                 )
             }
 
-            if (telaDuplas) {
-                TelaDuplas(
+            if (telaRodizio) {
+                TelaRodizio(
                     jogadores = jogadores.toList(),
-                    duplaEsquerda = duplaEsquerda,
-                    duplaDireita = duplaDireita,
+                    presentes = presentes,
+                    memoria = memoriaRodizio,
+                    sugestao = sugestao,
                     idiomaUi = idiomaUi,
                     versaoFotos = versaoFotos,
-                    onMudar = { lado, dupla ->
-                        if (lado == Lado.ESQUERDA) duplaEsquerda = dupla else duplaDireita = dupla
-                        salvarAndamento()
+                    onAlternarPresenca = { id ->
+                        presentes = if (presentes.contains(id)) presentes - id else presentes + id
+                        repositorio.salvarRodizio(memoriaRodizio, presentes)
+                        sugestao = calcularSugestao(false)
                     },
-                    onFechar = { telaDuplas = false }
+                    onSortear = { sugestao = calcularSugestao(true) },
+                    onAceitar = { formacao ->
+                        aceitarFormacao(formacao)
+                        telaRodizio = false
+                        telaNovoJogo = true
+                    },
+                    onFechar = { telaRodizio = false }
                 )
             }
 
@@ -192,6 +279,65 @@ class MainActivity : ComponentActivity() {
                     idiomaUi = idiomaUi,
                     onAbrir = { partidaExibida = it },
                     onFechar = { telaHistorico = false }
+                )
+            }
+
+            if (telaEstatisticas) {
+                TelaEstatisticas(
+                    jogadores = jogadores.toList(),
+                    partidas = historico,
+                    idiomaUi = idiomaUi,
+                    versaoFotos = versaoFotos,
+                    onExportar = { exportarCsv() },
+                    onFechar = { telaEstatisticas = false }
+                )
+            }
+
+            if (telaCorrecao) {
+                TelaCorrecao(
+                    estadoAtual = estadoAtual(),
+                    idiomaUi = idiomaUi,
+                    onAplicar = { corrigido ->
+                        aplicarCorrecao(corrigido)
+                        telaCorrecao = false
+                    },
+                    onFechar = { telaCorrecao = false }
+                )
+            }
+
+            if (telaStatus) {
+                TelaStatus(
+                    idiomaUi = idiomaUi,
+                    relogioConectado = clientes > 0,
+                    segundosDesdeContato = ultimoContato?.let {
+                        (System.currentTimeMillis() - it) / 1000
+                    },
+                    ultimaTecla = ultimaTecla,
+                    vozEnOk = voz.disponivel(Textos.EN),
+                    vozPtOk = voz.disponivel(Textos.PT),
+                    saidaAudio = saidaDeAudio(),
+                    ultimaPartida = historico.firstOrNull()?.let {
+                        SimpleDateFormat("dd/MM HH:mm", Locale.US).format(Date(it.inicio))
+                    } ?: "",
+                    endereco = enderecoLocal,
+                    onFechar = { telaStatus = false }
+                )
+            }
+
+            if (telaTeste) {
+                TelaTeste(
+                    idiomaUi = idiomaUi,
+                    ultimaTecla = ultimaTecla,
+                    codigoUltimaTecla = codigoUltimaTecla,
+                    tempoIdaEVolta = tempoIdaEVolta,
+                    onFalarEn = { voz.falarExemplo(Textos.EN) },
+                    onFalarPt = { voz.falarExemplo(Textos.PT) },
+                    onMapear = { acao ->
+                        codigoUltimaTecla?.let { ControleBluetooth.mapear(this, it, acao) }
+                    },
+                    onMedir = { tempoIdaEVolta = null; servidor?.medirIdaEVolta() },
+                    onDerrubar = { servidor?.derrubarSessoes() },
+                    onFechar = { telaTeste = false }
                 )
             }
 
@@ -207,7 +353,7 @@ class MainActivity : ComponentActivity() {
                     onNovoGame = {
                         partidaEncerrada = null
                         avisoResultado = ""
-                        escolhendoPrimeiroSaque = true
+                        telaNovoJogo = true
                     },
                     onFechar = {
                         partidaEncerrada = null
@@ -227,7 +373,37 @@ class MainActivity : ComponentActivity() {
         super.onDestroy()
     }
 
+    /**
+     * Controle Bluetooth: esses aparelhos se apresentam como teclado.
+     * O evento e consumido, senao o botao mexe no volume do sistema junto.
+     */
+    override fun onKeyDown(codigo: Int, evento: KeyEvent?): Boolean {
+        ultimaTecla = ControleBluetooth.nomeDaTecla(codigo)
+        codigoUltimaTecla = codigo
+
+        if (telaTeste) return true
+
+        return when (ControleBluetooth.acaoDe(this, codigo)) {
+            ControleBluetooth.ACAO_ESQUERDA -> {
+                registrarRally(Lado.ESQUERDA, Origem.CONTROLE); true
+            }
+            ControleBluetooth.ACAO_DIREITA -> {
+                registrarRally(Lado.DIREITA, Origem.CONTROLE); true
+            }
+            ControleBluetooth.ACAO_DESFAZER -> {
+                desfazer(); true
+            }
+            else -> super.onKeyDown(codigo, evento)
+        }
+    }
+
     // ---------- jogo ----------
+
+    private fun estadoAtual(): EstadoJogo {
+        val base = estadoBase
+        return if (base != null) Regras.derivarDe(eventos, base)
+        else Regras.derivar(eventos, primeiroSaque)
+    }
 
     private fun registrarRally(
         vencedor: Lado,
@@ -241,11 +417,11 @@ class MainActivity : ComponentActivity() {
             val ultimo = eventos.lastOrNull()
             if (ultimo != null && agora - ultimo.ts < 1000L) return@runOnUiThread
 
-            val anterior = Regras.derivar(eventos, primeiroSaque)
+            val anterior = estadoAtual()
             if (anterior.encerrado) return@runOnUiThread
 
             eventos.add(Evento(id = id, vencedor = vencedor, origem = origem, ts = agora))
-            val novo = Regras.derivar(eventos, primeiroSaque)
+            val novo = estadoAtual()
 
             voz.anunciar(anterior, novo)
             servidor?.transmitir(estadoJson())
@@ -260,6 +436,16 @@ class MainActivity : ComponentActivity() {
         voz.cancelarPendente()
         val removido = eventos.removeAt(eventos.lastIndex)
         idsVistos.remove(removido.id)
+        partidaEncerrada = null
+        servidor?.transmitir(estadoJson())
+        salvarAndamento()
+    }
+
+    private fun aplicarCorrecao(corrigido: EstadoJogo) {
+        voz.cancelarPendente()
+        estadoBase = corrigido
+        eventos.clear()
+        idsVistos.clear()
         partidaEncerrada = null
         servidor?.transmitir(estadoJson())
         salvarAndamento()
@@ -281,14 +467,31 @@ class MainActivity : ComponentActivity() {
         voz.cancelarPendente()
         eventos.clear()
         idsVistos.clear()
+        escalacoes.clear()
+        estadoBase = null
         partidaEncerrada = null
         avisoResultado = ""
         idPartida = UUID.randomUUID().toString()
         inicioPartida = System.currentTimeMillis()
         primeiroSaque = saqueInicial
         travado = true
+        escalacoes.add(Escalacao(inicioPartida, duplaEsquerda, duplaDireita))
         repositorio.limparAtual()
         servidor?.transmitir(estadoJson())
+        salvarAndamento()
+    }
+
+    /** Substituicao no meio do jogo. O placar nao muda. */
+    private fun substituir(lado: Lado, posicao: Int, entrando: Jogador) {
+        if (lado == Lado.ESQUERDA) {
+            duplaEsquerda = if (posicao == 0) duplaEsquerda.copy(a = entrando.id)
+            else duplaEsquerda.copy(b = entrando.id)
+        } else {
+            duplaDireita = if (posicao == 0) duplaDireita.copy(a = entrando.id)
+            else duplaDireita.copy(b = entrando.id)
+        }
+        escalacoes.add(Escalacao(System.currentTimeMillis(), duplaEsquerda, duplaDireita))
+        salvarAndamento()
     }
 
     private fun inverterLados() {
@@ -296,9 +499,17 @@ class MainActivity : ComponentActivity() {
         eventos.clear()
         eventos.addAll(espelhados)
         primeiroSaque = primeiroSaque.oposto()
+        estadoBase = estadoBase?.let { base ->
+            base.copy(
+                pontosEsquerda = base.pontosDireita,
+                pontosDireita = base.pontosEsquerda,
+                sacando = base.sacando.oposto()
+            )
+        }
         val guardada = duplaEsquerda
         duplaEsquerda = duplaDireita
         duplaDireita = guardada
+        escalacoes.add(Escalacao(System.currentTimeMillis(), duplaEsquerda, duplaDireita))
         servidor?.transmitir(estadoJson())
         salvarAndamento()
     }
@@ -310,7 +521,9 @@ class MainActivity : ComponentActivity() {
         primeiroSaque = primeiroSaque,
         duplaEsquerda = duplaEsquerda,
         duplaDireita = duplaDireita,
+        escalacoes = escalacoes.toList(),
         eventos = eventos.toList(),
+        base = estadoBase,
         completa = completa
     )
 
@@ -325,8 +538,22 @@ class MainActivity : ComponentActivity() {
         primeiroSaque = salva.primeiroSaque
         duplaEsquerda = salva.duplaEsquerda
         duplaDireita = salva.duplaDireita
+        estadoBase = salva.base
+        escalacoes.addAll(salva.escalacoes)
         eventos.addAll(salva.eventos)
         salva.eventos.forEach { idsVistos.add(it.id) }
+    }
+
+    // ---------- rodizio ----------
+
+    private fun calcularSugestao(embaralhar: Boolean): Formacao? =
+        Rodizio.sugerir(presentes.toList(), memoriaRodizio, embaralhar)
+
+    private fun aceitarFormacao(formacao: Formacao) {
+        duplaEsquerda = Dupla(formacao.esquerda.getOrNull(0), formacao.esquerda.getOrNull(1))
+        duplaDireita = Dupla(formacao.direita.getOrNull(0), formacao.direita.getOrNull(1))
+        memoriaRodizio = Rodizio.registrar(memoriaRodizio, formacao)
+        repositorio.salvarRodizio(memoriaRodizio, presentes)
     }
 
     // ---------- jogadores ----------
@@ -343,6 +570,7 @@ class MainActivity : ComponentActivity() {
         jogadores.removeAll { it.id == jogador.id }
         runCatching { repositorio.arquivoFoto(jogador.id).delete() }
         repositorio.salvarJogadores(jogadores.toList())
+        presentes = presentes - jogador.id
         if (duplaEsquerda.a == jogador.id) duplaEsquerda = duplaEsquerda.copy(a = null)
         if (duplaEsquerda.b == jogador.id) duplaEsquerda = duplaEsquerda.copy(b = null)
         if (duplaDireita.a == jogador.id) duplaDireita = duplaDireita.copy(a = null)
@@ -358,7 +586,7 @@ class MainActivity : ComponentActivity() {
         return ResumoEmail.nomeDupla(dupla, jogadores.toList(), idiomaUi)
     }
 
-    // ---------- email ----------
+    // ---------- saidas ----------
 
     private fun enviarEmail(partida: Partida) {
         val lista = jogadores.toList()
@@ -368,6 +596,22 @@ class MainActivity : ComponentActivity() {
         }
         val abriu = ResumoEmail.abrir(this, partida, lista, idiomaUi)
         avisoResultado = if (abriu) "" else Textos.get("sem_app_email", idiomaUi)
+    }
+
+    private fun exportarCsv() {
+        runCatching {
+            val arquivo = Exportacao.gerarCsv(this, historico, jogadores.toList())
+            Exportacao.compartilhar(this, arquivo)
+        }
+    }
+
+    private fun saidaDeAudio(): String {
+        val audio = getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+            ?: return Textos.get("alto_falante", idiomaUi)
+        @Suppress("DEPRECATION")
+        val bluetooth = audio.isBluetoothA2dpOn
+        return if (bluetooth) Textos.get("caixa_bluetooth", idiomaUi)
+        else Textos.get("alto_falante", idiomaUi)
     }
 
     // ---------- travamento ----------
@@ -396,6 +640,7 @@ class MainActivity : ComponentActivity() {
     private fun trocarIdiomaTela() {
         idiomaUi = if (idiomaUi == Textos.EN) Textos.PT else Textos.EN
         salvarPreferencias()
+        servidor?.transmitir(estadoJson())
     }
 
     private fun carregarPreferencias() {
@@ -414,7 +659,7 @@ class MainActivity : ComponentActivity() {
     // ---------- rede ----------
 
     private fun estadoJson(): String {
-        val estado: EstadoJogo = Regras.derivar(eventos, primeiroSaque)
+        val estado = estadoAtual()
         return JSONObject().apply {
             put("tipo", "ESTADO")
             put("esq", estado.pontosEsquerda)
@@ -424,6 +669,7 @@ class MainActivity : ComponentActivity() {
             put("chamada", estado.chamada)
             put("encerrado", estado.encerrado)
             put("pontoDeJogo", estado.pontoDeJogo)
+            put("idioma", idiomaUi)
         }.toString()
     }
 

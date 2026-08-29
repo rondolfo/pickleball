@@ -14,6 +14,7 @@ import io.ktor.server.websocket.DefaultWebSocketServerSession
 import io.ktor.server.websocket.WebSockets
 import io.ktor.server.websocket.webSocket
 import io.ktor.websocket.Frame
+import io.ktor.websocket.close
 import io.ktor.websocket.readText
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -34,7 +35,9 @@ class ServidorPlacar(
     private val aoReceberRally: (id: String, vencedor: Lado) -> Unit,
     private val aoReceberDesfazer: () -> Unit,
     private val estadoJson: () -> String,
-    private val aoMudarClientes: (Int) -> Unit
+    private val aoMudarClientes: (Int) -> Unit,
+    private val aoReceberEco: (Long) -> Unit = {},
+    private val aoTerContato: () -> Unit = {}
 ) {
 
     companion object {
@@ -84,6 +87,25 @@ class ServidorPlacar(
         pararServidor = null
     }
 
+    /** Dispara um eco para medir o tempo de ida e volta ate o relogio. */
+    fun medirIdaEVolta() {
+        val mensagem = JSONObject().apply {
+            put("tipo", Protocolo.TIPO_ECO)
+            put("ts", System.currentTimeMillis())
+        }.toString()
+        transmitir(mensagem)
+    }
+
+    /** Derruba as sessoes abertas, para testar a reconexao do relogio. */
+    fun derrubarSessoes() {
+        escopo.launch {
+            val copia = synchronized(sessoes) { sessoes.toList() }
+            copia.forEach { sessao ->
+                runCatching { sessao.close() }
+            }
+        }
+    }
+
     fun transmitir(json: String) {
         escopo.launch {
             val copia = synchronized(sessoes) { sessoes.toList() }
@@ -93,6 +115,7 @@ class ServidorPlacar(
 
     /** Devolve a confirmacao a ser enviada de volta, ou null quando nao ha. */
     private fun tratarMensagem(texto: String): String? {
+        aoTerContato()
         return runCatching {
             val objeto = JSONObject(texto)
             when (objeto.optString("tipo")) {
@@ -111,6 +134,10 @@ class ServidorPlacar(
                     null
                 }
                 Protocolo.TIPO_PING -> estadoJson()
+                Protocolo.TIPO_ECO_RESP -> {
+                    aoReceberEco(objeto.optLong("ts"))
+                    null
+                }
                 else -> null
             }
         }.getOrElse {

@@ -15,4 +15,6 @@ object Protocolo {
     const val TIPO_ESTADO = "ESTADO"
     const val TIPO_PING = "PING"
     const val TIPO_ACK = "ACK"
+    const val TIPO_ECO = "ECO"
+    const val TIPO_ECO_RESP = "ECO_RESP"
 }

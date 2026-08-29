@@ -29,8 +29,14 @@ fun MenuAjustes(
     onNovoGame: () -> Unit,
     onInverter: () -> Unit,
     onDuplas: () -> Unit,
+    onSubstituir: () -> Unit,
+    onRodizio: () -> Unit,
     onJogadores: () -> Unit,
     onHistorico: () -> Unit,
+    onEstatisticas: () -> Unit,
+    onCorrigir: () -> Unit,
+    onStatus: () -> Unit,
+    onTeste: () -> Unit,
     onTrocarIdiomaVoz: () -> Unit,
     onTrocarIdiomaTela: () -> Unit,
     onRepetir: () -> Unit,
@@ -62,8 +68,14 @@ fun MenuAjustes(
             ItemMenu(Textos.get("novo_game", idiomaUi), onNovoGame)
             ItemMenu(Textos.get("inverter", idiomaUi), onInverter)
             ItemMenu(Textos.get("montar", idiomaUi), onDuplas)
+            ItemMenu(Textos.get("substituir", idiomaUi), onSubstituir)
+            ItemMenu(Textos.get("corrigir", idiomaUi), onCorrigir)
+            ItemMenu(Textos.get("rodizio", idiomaUi), onRodizio)
             ItemMenu(Textos.get("jogadores", idiomaUi), onJogadores)
             ItemMenu(Textos.get("historico", idiomaUi), onHistorico)
+            ItemMenu(Textos.get("estatisticas", idiomaUi), onEstatisticas)
+            ItemMenu(Textos.get("status", idiomaUi), onStatus)
+            ItemMenu(Textos.get("teste", idiomaUi), onTeste)
             ItemMenu(
                 Textos.get("idioma_voz", idiomaUi) + "   " + idiomaVoz.uppercase(),
                 onTrocarIdiomaVoz

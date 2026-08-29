@@ -170,6 +170,14 @@ class ClienteTablet(
                     val id = objeto.optString("id")
                     if (pendentes.remove(id) != null) aoConfirmarPonto()
                 }
+                Protocolo.TIPO_ECO -> {
+                    // devolve o mesmo horario para o tablet medir a ida e volta
+                    val resposta = JSONObject().apply {
+                        put("tipo", Protocolo.TIPO_ECO_RESP)
+                        put("ts", objeto.optLong("ts"))
+                    }.toString()
+                    imediatas.trySend(resposta)
+                }
                 else -> aoReceberEstado(objeto)
             }
         }
