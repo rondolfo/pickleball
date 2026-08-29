@@ -12,16 +12,31 @@ android {
         applicationId = "com.kriptobr.placar.watch"
         minSdk = 30
         targetSdk = 35
-        versionCode = 4
-        versionName = "0.4-completo"
+        versionCode = 5
+        versionName = "0.5-chave-fixa"
+    }
+
+    signingConfigs {
+        create("estavel") {
+            // Chave fixa, versionada junto com o projeto.
+            // Sem isso, cada build do GitHub gera uma chave nova, o Android
+            // recusa a atualizacao e a unica saida vira desinstalar, o que
+            // apaga jogadores, fotos e historico.
+            storeFile = rootProject.file("chave/placar.jks")
+            storePassword = "placar2026"
+            keyAlias = "placar"
+            keyPassword = "placar2026"
+        }
     }
 
     buildTypes {
         debug {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("estavel")
         }
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("estavel")
         }
     }
 

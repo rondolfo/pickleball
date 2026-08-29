@@ -9,6 +9,8 @@ import android.view.KeyEvent
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -52,6 +54,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var repositorio: Repositorio
     private lateinit var voz: Voz
     private var servidor: ServidorPlacar? = null
+    private lateinit var seletorBackup: ActivityResultLauncher<Array<String>>
 
     private var idPartida by mutableStateOf(UUID.randomUUID().toString())
     private var inicioPartida by mutableStateOf(System.currentTimeMillis())
@@ -85,6 +88,8 @@ class MainActivity : ComponentActivity() {
     private var telaEstatisticas by mutableStateOf(false)
     private var telaStatus by mutableStateOf(false)
     private var telaTeste by mutableStateOf(false)
+    private var telaBackup by mutableStateOf(false)
+    private var avisoBackup by mutableStateOf("")
     private var telaCorrecao by mutableStateOf(false)
     private var confirmandoNovoGame by mutableStateOf(false)
     private var partidaExibida by mutableStateOf<Partida?>(null)
@@ -101,6 +106,17 @@ class MainActivity : ComponentActivity() {
             hide(WindowInsetsCompat.Type.systemBars())
             systemBarsBehavior =
                 WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        }
+
+        seletorBackup = registerForActivityResult(
+            ActivityResultContracts.OpenDocument()
+        ) { uri ->
+            if (uri != null) {
+                val deu = Backup.importar(this, uri)
+                avisoBackup = if (deu) Textos.get("backup_ok", idiomaUi)
+                else Textos.get("backup_erro", idiomaUi)
+                if (deu) recarregarTudo()
+            }
         }
 
         repositorio = Repositorio(this)
@@ -187,6 +203,7 @@ class MainActivity : ComponentActivity() {
                         telaStatus = true
                     },
                     onTeste = { menuAberto = false; telaTeste = true },
+                    onBackup = { avisoBackup = ""; menuAberto = false; telaBackup = true },
                     onTrocarIdiomaVoz = { trocarIdiomaVoz() },
                     onTrocarIdiomaTela = { trocarIdiomaTela() },
                     onRepetir = { voz.repetir(); menuAberto = false },
@@ -338,6 +355,16 @@ class MainActivity : ComponentActivity() {
                     onMedir = { tempoIdaEVolta = null; servidor?.medirIdaEVolta() },
                     onDerrubar = { servidor?.derrubarSessoes() },
                     onFechar = { telaTeste = false }
+                )
+            }
+
+            if (telaBackup) {
+                TelaBackup(
+                    idiomaUi = idiomaUi,
+                    aviso = avisoBackup,
+                    onExportar = { exportarBackup() },
+                    onImportar = { seletorBackup.launch(arrayOf("*/*")) },
+                    onFechar = { telaBackup = false; avisoBackup = "" }
                 )
             }
 
@@ -596,6 +623,34 @@ class MainActivity : ComponentActivity() {
         }
         val abriu = ResumoEmail.abrir(this, partida, lista, idiomaUi)
         avisoResultado = if (abriu) "" else Textos.get("sem_app_email", idiomaUi)
+    }
+
+    private fun exportarBackup() {
+        runCatching {
+            val arquivo = Backup.exportar(this)
+            Backup.compartilhar(this, arquivo)
+            avisoBackup = ""
+        }.onFailure { avisoBackup = Textos.get("backup_erro", idiomaUi) }
+    }
+
+    /** Recarrega tudo da pasta do aplicativo depois de restaurar um backup. */
+    private fun recarregarTudo() {
+        jogadores.clear()
+        jogadores.addAll(repositorio.carregarJogadores())
+
+        val (memoria, presentesSalvos) = repositorio.carregarRodizio()
+        memoriaRodizio = memoria
+        presentes = presentesSalvos
+
+        eventos.clear()
+        escalacoes.clear()
+        idsVistos.clear()
+        estadoBase = null
+        restaurarPartidaEmAndamento()
+
+        historico = repositorio.listarPartidas()
+        versaoFotos += 1
+        servidor?.transmitir(estadoJson())
     }
 
     private fun exportarCsv() {

@@ -37,6 +37,7 @@ fun MenuAjustes(
     onCorrigir: () -> Unit,
     onStatus: () -> Unit,
     onTeste: () -> Unit,
+    onBackup: () -> Unit,
     onTrocarIdiomaVoz: () -> Unit,
     onTrocarIdiomaTela: () -> Unit,
     onRepetir: () -> Unit,
@@ -76,6 +77,7 @@ fun MenuAjustes(
             ItemMenu(Textos.get("estatisticas", idiomaUi), onEstatisticas)
             ItemMenu(Textos.get("status", idiomaUi), onStatus)
             ItemMenu(Textos.get("teste", idiomaUi), onTeste)
+            ItemMenu(Textos.get("backup", idiomaUi), onBackup)
             ItemMenu(
                 Textos.get("idioma_voz", idiomaUi) + "   " + idiomaVoz.uppercase(),
                 onTrocarIdiomaVoz

@@ -89,6 +89,16 @@ Tres caminhos em cascata: endereco salvo da ultima vez, anuncio na rede local e 
 
 Arquivos JSON dentro do proprio aplicativo. Sem conta, sem login, sem nuvem, sem sincronizacao. Fotos reduzidas a 256 pixels.
 
+Backup e restauracao em Ajustes, Backup. Um arquivo unico com jogadores, fotos, partidas e a memoria do rodizio.
+
+## Assinatura
+
+Os APKs sao assinados com a chave fixa em `chave/placar.jks`, versionada junto com o projeto.
+
+Sem isso, cada build do GitHub gera uma chave de debug nova, o Android recusa a atualizacao e a unica saida vira desinstalar, o que apaga tudo. Com a chave fixa, atualizar por cima preserva os dados.
+
+A chave e autoassinada e serve apenas para uso proprio. Como esta versionada, quem tiver acesso ao repositorio consegue assinar um APK que o Android aceita como atualizacao deste aplicativo. Para uso pessoal isso e aceitavel, e deixar o repositorio privado remove ate esse risco.
+
 ## Estrutura
 
 ```

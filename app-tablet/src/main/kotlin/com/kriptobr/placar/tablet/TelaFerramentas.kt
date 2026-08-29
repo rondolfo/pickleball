@@ -155,3 +155,46 @@ fun TelaTeste(
         Botao(Textos.get("fechar", idiomaUi), CINZA_TEXTO) { onFechar() }
     }
 }
+
+/**
+ * Backup e restauracao. O arquivo unico guarda jogadores, fotos, partidas
+ * e a memoria do rodizio.
+ */
+@Composable
+fun TelaBackup(
+    idiomaUi: String,
+    aviso: String,
+    onExportar: () -> Unit,
+    onImportar: () -> Unit,
+    onFechar: () -> Unit
+) {
+    Painel {
+        Text(
+            Textos.get("backup", idiomaUi),
+            color = CINZA_TEXTO,
+            fontSize = 16.sp,
+            letterSpacing = 2.sp
+        )
+        Box(modifier = Modifier.height(12.dp))
+
+        Text(
+            Textos.get("aviso_backup", idiomaUi),
+            color = CINZA_TEXTO,
+            fontSize = 14.sp,
+            modifier = Modifier.width(480.dp)
+        )
+
+        Box(modifier = Modifier.height(18.dp))
+
+        Botao(Textos.get("exportar_backup", idiomaUi), VERDE) { onExportar() }
+        Botao(Textos.get("importar_backup", idiomaUi), Color.White) { onImportar() }
+
+        if (aviso.isNotBlank()) {
+            Box(modifier = Modifier.height(10.dp))
+            Text(aviso, color = AMBAR, fontSize = 14.sp)
+        }
+
+        Box(modifier = Modifier.height(14.dp))
+        Botao(Textos.get("fechar", idiomaUi), CINZA_TEXTO) { onFechar() }
+    }
+}

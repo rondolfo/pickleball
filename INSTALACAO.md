@@ -139,6 +139,27 @@ adb uninstall com.kriptobr.placar.watch
 
 ---
 
+## Sobre atualizacoes e perda de dados
+
+O projeto usa uma chave de assinatura fixa, versionada na pasta `chave/`. Isso e o que permite atualizar por cima sem perder jogadores, fotos e historico.
+
+Atualizar preserva os dados:
+
+- No tablet, toque no arquivo APK novo. O Android reconhece como atualizacao
+- No relogio, `adb install -r`, que e exatamente o que o `-r` faz
+
+Desinstalar apaga tudo. So faca isso se for realmente necessario.
+
+Uma unica excecao: a primeira instalacao depois da mudanca para a chave fixa. Como a assinatura anterior era aleatoria, o Android vai recusar a atualizacao. Nessa vez, e so nessa, desinstale antes:
+
+```
+adb uninstall com.kriptobr.placar.watch
+```
+
+No tablet, desinstale pelo menu de aplicativos. Faca isso antes de cadastrar o grupo, para nao perder trabalho.
+
+De qualquer forma, o aplicativo tem backup em Ajustes, Backup. Depois de cadastrar todo mundo, salve um arquivo e guarde na nuvem. Ele contem jogadores, fotos, partidas e a memoria do rodizio.
+
 ## Nas proximas vezes
 
 Depois da primeira configuracao, atualizar o aplicativo do relogio e apenas:

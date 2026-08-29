@@ -118,7 +118,13 @@ object Textos {
             "parceiro_frequente" to "Most frequent partner",
             "melhor_parceiro" to "Best results with",
             "sem_dados" to "No finished matches yet.",
-            "exportar" to "Export to CSV"
+            "exportar" to "Export to CSV",
+            "backup" to "Backup",
+            "exportar_backup" to "Save a backup",
+            "importar_backup" to "Restore from a backup",
+            "aviso_backup" to "The backup holds players, photos, matches and rotation. Save it somewhere safe after you enter everyone. Restoring replaces what is on this tablet.",
+            "backup_ok" to "Done.",
+            "backup_erro" to "That file could not be read."
         ),
         PT to mapOf(
             "esquerda" to "ESQUERDA",
@@ -227,7 +233,13 @@ object Textos {
             "parceiro_frequente" to "Parceiro mais frequente",
             "melhor_parceiro" to "Melhores resultados com",
             "sem_dados" to "Nenhuma partida encerrada ainda.",
-            "exportar" to "Exportar em CSV"
+            "exportar" to "Exportar em CSV",
+            "backup" to "Backup",
+            "exportar_backup" to "Salvar um backup",
+            "importar_backup" to "Restaurar de um backup",
+            "aviso_backup" to "O backup guarda jogadores, fotos, partidas e rodizio. Guarde num lugar seguro depois de cadastrar todo mundo. Restaurar substitui o que esta neste tablet.",
+            "backup_ok" to "Pronto.",
+            "backup_erro" to "Nao foi possivel ler esse arquivo."
         )
     )
 
