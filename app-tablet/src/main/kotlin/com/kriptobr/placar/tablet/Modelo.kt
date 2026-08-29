@@ -64,3 +64,13 @@ data class Partida(
         else -> null
     }
 }
+
+/**
+ * Estatisticas desta partida, respeitando o estado base quando houve
+ * correcao manual do placar.
+ */
+fun Partida.estatisticas(): com.kriptobr.placar.core.Estatisticas =
+    com.kriptobr.placar.core.Analise.calcular(
+        eventos,
+        base ?: com.kriptobr.placar.core.Regras.estadoInicial(primeiroSaque)
+    )

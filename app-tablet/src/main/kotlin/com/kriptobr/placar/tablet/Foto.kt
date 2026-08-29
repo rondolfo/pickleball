@@ -40,6 +40,28 @@ object Foto {
         true
     }.getOrDefault(false)
 
+    /**
+     * Reduz e grava uma foto que ja esta em arquivo, como a que a camera
+     * acabou de tirar em resolucao cheia.
+     */
+    fun reduzirNoLugar(arquivo: File): Boolean = runCatching {
+        val original = BitmapFactory.decodeFile(arquivo.absolutePath) ?: return false
+        val maior = maxOf(original.width, original.height).coerceAtLeast(1)
+        val escala = LADO_MAXIMO.toFloat() / maior
+        if (escala >= 1f) return true
+
+        val reduzida = Bitmap.createScaledBitmap(
+            original,
+            (original.width * escala).toInt().coerceAtLeast(1),
+            (original.height * escala).toInt().coerceAtLeast(1),
+            true
+        )
+        arquivo.outputStream().use { saida ->
+            reduzida.compress(Bitmap.CompressFormat.JPEG, 85, saida)
+        }
+        true
+    }.getOrDefault(false)
+
     fun carregar(arquivo: File): Bitmap? = runCatching {
         if (!arquivo.exists()) null else BitmapFactory.decodeFile(arquivo.absolutePath)
     }.getOrNull()

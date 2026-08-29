@@ -24,7 +24,6 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.kriptobr.placar.core.Analise
 import com.kriptobr.placar.core.Lado
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -41,7 +40,7 @@ fun TelaResultado(
     onNovoGame: () -> Unit,
     onFechar: () -> Unit
 ) {
-    val stats = Analise.calcular(partida.eventos, partida.primeiroSaque)
+    val stats = partida.estatisticas()
     val esq = ResumoEmail.nomeLado(Lado.ESQUERDA, partida, jogadores, idiomaUi)
     val dir = ResumoEmail.nomeLado(Lado.DIREITA, partida, jogadores, idiomaUi)
 
@@ -206,7 +205,7 @@ fun TelaHistorico(
 
             LazyColumn {
                 items(partidas, key = { it.id }) { partida ->
-                    val stats = Analise.calcular(partida.eventos, partida.primeiroSaque)
+                    val stats = partida.estatisticas()
                     val esq = ResumoEmail.nomeLado(Lado.ESQUERDA, partida, jogadores, idiomaUi)
                     val dir = ResumoEmail.nomeLado(Lado.DIREITA, partida, jogadores, idiomaUi)
 

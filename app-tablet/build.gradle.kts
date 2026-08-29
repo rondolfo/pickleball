@@ -12,8 +12,8 @@ android {
         applicationId = "com.kriptobr.placar.tablet"
         minSdk = 26
         targetSdk = 35
-        versionCode = 5
-        versionName = "0.5-chave-fixa"
+        versionCode = 7
+        versionName = "0.7-quadra"
     }
 
     signingConfigs {

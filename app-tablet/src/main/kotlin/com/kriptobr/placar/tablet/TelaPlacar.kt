@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -42,6 +43,8 @@ fun TelaPlacar(
     estado: EstadoJogo,
     nomeEsquerda: String,
     nomeDireita: String,
+    nomeSacador: String,
+    posicoes: PosicoesQuadra,
     idiomaUi: String,
     idiomaVoz: String,
     conectado: Boolean,
@@ -54,21 +57,24 @@ fun TelaPlacar(
     onTrocarIdiomaVoz: () -> Unit,
     onRepetir: () -> Unit
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black)
-    ) {
+    BoxWithConstraints(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+    val alturaFaixa = (maxHeight.value * 0.24f).dp
+
+    Column(modifier = Modifier.fillMaxSize()) {
         Row(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
         ) {
-            LadoDoPlacar(Lado.ESQUERDA, nomeEsquerda, estado, idiomaUi, travado,
-                Modifier.weight(1f), onPonto = { onPonto(Lado.ESQUERDA) }, onDestravar = onDestravar)
-            LadoDoPlacar(Lado.DIREITA, nomeDireita, estado, idiomaUi, travado,
-                Modifier.weight(1f), onPonto = { onPonto(Lado.DIREITA) }, onDestravar = onDestravar)
+            LadoDoPlacar(Lado.ESQUERDA, nomeEsquerda, estado, travado,
+                Modifier.weight(1f), onPonto = { onPonto(Lado.ESQUERDA) },
+                onDestravar = onDestravar)
+            LadoDoPlacar(Lado.DIREITA, nomeDireita, estado, travado,
+                Modifier.weight(1f), onPonto = { onPonto(Lado.DIREITA) },
+                onDestravar = onDestravar)
         }
+
+        FaixaDeSaque(estado, nomeSacador, posicoes, idiomaUi, alturaFaixa)
 
         Rodape(
             estado = estado,
@@ -83,6 +89,7 @@ fun TelaPlacar(
             onRepetir = onRepetir
         )
     }
+    }
 }
 
 @Composable
@@ -90,7 +97,6 @@ private fun LadoDoPlacar(
     lado: Lado,
     rotulo: String,
     estado: EstadoJogo,
-    idiomaUi: String,
     travado: Boolean,
     modifier: Modifier,
     onPonto: () -> Unit,
@@ -103,8 +109,8 @@ private fun LadoDoPlacar(
     BoxWithConstraints(
         modifier = modifier
             .fillMaxHeight()
-            .padding(10.dp)
-            .border(3.dp, corBorda, RoundedCornerShape(14.dp))
+            .padding(8.dp)
+            .border(if (sacando || venceu) 5.dp else 2.dp, corBorda, RoundedCornerShape(14.dp))
             .pointerInput(travado) {
                 detectTapGestures(
                     onDoubleTap = { if (travado) onDestravar() },
@@ -113,8 +119,9 @@ private fun LadoDoPlacar(
             },
         contentAlignment = Alignment.Center
     ) {
-        val tamanhoNumero = (maxHeight.value * 0.58f).sp
-        val tamanhoRotulo = (maxHeight.value * 0.065f).coerceAtLeast(12f).sp
+        // numero ocupando quase toda a altura util, para leitura a distancia
+        val tamanhoNumero = (maxHeight.value * 0.72f).sp
+        val tamanhoRotulo = (maxHeight.value * 0.08f).coerceIn(13f, 34f).sp
 
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -124,9 +131,9 @@ private fun LadoDoPlacar(
                 text = rotulo,
                 color = if (sacando) VERDE else CINZA_TEXTO,
                 fontSize = tamanhoRotulo,
-                letterSpacing = 2.sp
+                letterSpacing = 2.sp,
+                maxLines = 1
             )
-
             Text(
                 text = estado.pontosDe(lado).toString(),
                 color = if (sacando || venceu) Color.White else Color(0xFFB4B2A9),
@@ -135,25 +142,86 @@ private fun LadoDoPlacar(
                 fontFamily = FontFamily.Monospace,
                 textAlign = TextAlign.Center
             )
-
-            Text(
-                text = when {
-                    venceu -> Textos.get("venceu", idiomaUi)
-                    sacando -> rotuloSaque(estado, idiomaUi)
-                    else -> ""
-                },
-                color = if (sacando || venceu) VERDE else Color.Transparent,
-                fontSize = tamanhoRotulo,
-                letterSpacing = 2.sp
-            )
         }
     }
 }
 
-private fun rotuloSaque(estado: EstadoJogo, idiomaUi: String): String {
-    val sacador = "${Textos.get("sacador", idiomaUi)} ${estado.sacador}"
-    val chave = if (estado.ladoDoSaque == "direita") "saque_direita" else "saque_esquerda"
-    return "$sacador  .  ${Textos.get(chave, idiomaUi)}"
+/**
+ * Faixa de quem saca. E a informacao que mais gera duvida em quadra,
+ * entao ganha altura propria e texto grande, em vez de virar legenda.
+ */
+/**
+ * Faixa de quem saca: nome grande, para ler de longe, ao lado do desenho
+ * da quadra, que mostra exatamente onde cada um deve estar.
+ */
+@Composable
+private fun FaixaDeSaque(
+    estado: EstadoJogo,
+    nomeSacador: String,
+    posicoes: PosicoesQuadra,
+    idiomaUi: String,
+    alturaFaixa: androidx.compose.ui.unit.Dp
+) {
+    BoxWithConstraints(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(alturaFaixa)
+            .padding(horizontal = 10.dp, vertical = 4.dp)
+    ) {
+        val tamanho = (maxWidth.value * 0.038f).coerceIn(20f, 56f).sp
+
+        if (estado.encerrado) {
+            Text(
+                text = Textos.get("fim_game", idiomaUi),
+                color = VERDE,
+                fontSize = tamanho,
+                fontWeight = FontWeight.Medium,
+                letterSpacing = 4.sp,
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center
+            )
+        } else {
+            val ladoTexto = Textos.get(
+                if (estado.ladoDoSaque == "direita") "saque_direita" else "saque_esquerda",
+                idiomaUi
+            )
+            Row(
+                modifier = Modifier.fillMaxSize(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(
+                    modifier = Modifier.weight(1f),
+                    horizontalAlignment = Alignment.End
+                ) {
+                    Text(
+                        text = nomeSacador.uppercase(),
+                        color = VERDE,
+                        fontSize = tamanho,
+                        fontWeight = FontWeight.Medium,
+                        letterSpacing = 2.sp,
+                        maxLines = 1
+                    )
+                    Text(
+                        text = "$ladoTexto  .  ${Textos.get("sacador", idiomaUi)} ${estado.sacador}",
+                        color = CINZA_TEXTO,
+                        fontSize = (tamanho.value * 0.42f).sp,
+                        letterSpacing = 2.sp,
+                        maxLines = 1
+                    )
+                }
+
+                Box(modifier = Modifier.width(24.dp))
+
+                QuadraDoSaque(
+                    estado = estado,
+                    posicoes = posicoes,
+                    altura = alturaFaixa,
+                    modifier = Modifier.weight(1.1f)
+                )
+            }
+        }
+    }
 }
 
 @Composable
@@ -172,14 +240,14 @@ private fun Rodape(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 10.dp),
+            .padding(horizontal = 18.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
                 modifier = Modifier
-                    .size(11.dp)
+                    .size(10.dp)
                     .background(if (conectado) VERDE else AMBAR, CircleShape)
             )
             Text(
@@ -189,26 +257,26 @@ private fun Rodape(
                     "  " + Textos.get("aguardando", idiomaUi) + "  .  " + endereco
                 },
                 color = CINZA_TEXTO,
-                fontSize = 14.sp
+                fontSize = 13.sp
             )
             if (travado) {
                 Text(
                     text = "   .   " + Textos.get("travado", idiomaUi),
                     color = Color(0xFF5F5E5A),
-                    fontSize = 14.sp
+                    fontSize = 13.sp
                 )
             }
         }
 
         Text(
-            text = when {
-                estado.encerrado -> Textos.get("fim_game", idiomaUi)
-                estado.pontoDeJogo -> estado.chamada.replace("-", " . ") +
-                    "   " + Textos.get("ponto_de_jogo", idiomaUi)
-                else -> estado.chamada.replace("-", " . ")
+            text = if (estado.pontoDeJogo) {
+                estado.chamada.replace("-", " . ") + "   " +
+                    Textos.get("ponto_de_jogo", idiomaUi)
+            } else {
+                estado.chamada.replace("-", " . ")
             },
-            color = if (estado.pontoDeJogo || estado.encerrado) VERDE else CINZA_TEXTO,
-            fontSize = 19.sp,
+            color = if (estado.pontoDeJogo) VERDE else CINZA_TEXTO,
+            fontSize = 18.sp,
             letterSpacing = 3.sp,
             fontFamily = FontFamily.Monospace,
             modifier = Modifier
@@ -220,26 +288,26 @@ private fun Rodape(
             Text(
                 text = idiomaVoz.uppercase(),
                 color = VERDE,
-                fontSize = 15.sp,
+                fontSize = 14.sp,
                 fontWeight = FontWeight.Medium,
                 modifier = Modifier
                     .clickable { onTrocarIdiomaVoz() }
                     .padding(8.dp)
             )
-            Box(modifier = Modifier.width(14.dp))
+            Box(modifier = Modifier.width(10.dp))
             Text(
                 text = Textos.get("desfazer", idiomaUi),
                 color = CINZA_TEXTO,
-                fontSize = 14.sp,
+                fontSize = 13.sp,
                 modifier = Modifier
                     .clickable { onDesfazer() }
                     .padding(8.dp)
             )
-            Box(modifier = Modifier.width(14.dp))
+            Box(modifier = Modifier.width(10.dp))
             Text(
                 text = "\u2699",
                 color = CINZA_TEXTO,
-                fontSize = 20.sp,
+                fontSize = 19.sp,
                 modifier = Modifier
                     .clickable { onAbrirMenu() }
                     .padding(8.dp)

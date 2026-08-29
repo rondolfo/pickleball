@@ -158,6 +158,8 @@ class MainActivity : ComponentActivity() {
                 estado = estado,
                 nomeEsquerda = nomeDoLado(Lado.ESQUERDA),
                 nomeDireita = nomeDoLado(Lado.DIREITA),
+                nomeSacador = nomeDoSacador(estado),
+                posicoes = posicoesDaQuadra(estado),
                 idiomaUi = idiomaUi,
                 idiomaVoz = idiomaVoz,
                 conectado = clientes > 0,
@@ -315,7 +317,13 @@ class MainActivity : ComponentActivity() {
                     estadoAtual = estadoAtual(),
                     idiomaUi = idiomaUi,
                     onAplicar = { corrigido ->
-                        aplicarCorrecao(corrigido)
+                        aplicarCorrecao(
+                            corrigido.copy(
+                                naDireitaEsquerda = estadoAtual().naDireitaEsquerda,
+                                naDireitaDireita = estadoAtual().naDireitaDireita,
+                                indiceSacador = estadoAtual().indiceSacador
+                            )
+                        )
                         telaCorrecao = false
                     },
                     onFechar = { telaCorrecao = false }
@@ -450,7 +458,7 @@ class MainActivity : ComponentActivity() {
             eventos.add(Evento(id = id, vencedor = vencedor, origem = origem, ts = agora))
             val novo = estadoAtual()
 
-            voz.anunciar(anterior, novo)
+            voz.anunciar(anterior, novo, nomeDoSacador(novo))
             servidor?.transmitir(estadoJson())
             salvarAndamento()
 
@@ -605,6 +613,41 @@ class MainActivity : ComponentActivity() {
         versaoFotos += 1
     }
 
+    /**
+     * Quem esta com a bola agora. Depende da posicao dos jogadores em quadra,
+     * que o nucleo rastreia, e nao apenas de qual dupla saca.
+     */
+    private fun nomeDoSacador(estado: EstadoJogo): String {
+        val dupla = if (estado.sacando == Lado.ESQUERDA) duplaEsquerda else duplaDireita
+        val id = if (estado.indiceSacador == 0) dupla.a else dupla.b
+        val jogador = jogadores.firstOrNull { it.id == id }
+        if (jogador != null) return jogador.curto
+        return Textos.get(
+            if (estado.sacando == Lado.ESQUERDA) "esquerda" else "direita",
+            idiomaUi
+        )
+    }
+
+    /**
+     * Resolve quem esta em cada uma das quatro quadras de servico.
+     */
+    private fun posicoesDaQuadra(estado: EstadoJogo): PosicoesQuadra {
+        fun nome(dupla: Dupla, indice: Int, alternativo: String): String {
+            val id = if (indice == 0) dupla.a else dupla.b
+            return jogadores.firstOrNull { it.id == id }?.curto ?: alternativo
+        }
+
+        val naDirEsq = estado.naDireitaEsquerda
+        val naDirDir = estado.naDireitaDireita
+
+        return PosicoesQuadra(
+            esqNaDireita = nome(duplaEsquerda, naDirEsq, "1"),
+            esqNaEsquerda = nome(duplaEsquerda, 1 - naDirEsq, "2"),
+            dirNaDireita = nome(duplaDireita, naDirDir, "1"),
+            dirNaEsquerda = nome(duplaDireita, 1 - naDirDir, "2")
+        )
+    }
+
     private fun nomeDoLado(lado: Lado): String {
         val dupla = if (lado == Lado.ESQUERDA) duplaEsquerda else duplaDireita
         if (dupla.vazia) {
@@ -725,6 +768,8 @@ class MainActivity : ComponentActivity() {
             put("encerrado", estado.encerrado)
             put("pontoDeJogo", estado.pontoDeJogo)
             put("idioma", idiomaUi)
+            put("sacadorNome", nomeDoSacador(estado))
+            put("ladoSaque", estado.ladoDoSaque)
         }.toString()
     }
 

@@ -56,8 +56,8 @@ class Voz(private val contexto: Context) {
      * A fala sai com atraso. Se o ponto for desfeito nesse intervalo,
      * o placar errado nunca chega a ser falado.
      */
-    fun anunciar(anterior: EstadoJogo, novo: EstadoJogo) {
-        val texto = montarFrase(anterior, novo)
+    fun anunciar(anterior: EstadoJogo, novo: EstadoJogo, nomeSacador: String = "") {
+        val texto = montarFrase(anterior, novo, nomeSacador)
         ultimaFala = texto
         agendar(texto)
     }
@@ -113,7 +113,17 @@ class Voz(private val contexto: Context) {
     private fun localeDe(alvo: String): Locale =
         if (alvo == Textos.PT) Locale("pt", "BR") else Locale.US
 
-    private fun montarFrase(anterior: EstadoJogo, novo: EstadoJogo): String {
+    /**
+     * O nome do sacador so entra quando o sacador muda.
+     *
+     * Falar o nome em todo ponto deixa a chamada lenta e cansa. Falar na
+     * troca e exatamente quando a duvida existe.
+     */
+    private fun montarFrase(
+        anterior: EstadoJogo,
+        novo: EstadoJogo,
+        nomeSacador: String
+    ): String {
         val partes = mutableListOf<String>()
 
         if (novo.encerrado) {
@@ -126,9 +136,20 @@ class Voz(private val contexto: Context) {
 
         partes.add(chamadaFalada(novo))
 
+        val trocouSacador = novo.sacando != anterior.sacando ||
+            novo.indiceSacador != anterior.indiceSacador
+        if (trocouSacador && nomeSacador.isNotBlank()) {
+            partes.add(anuncioDeSacador(nomeSacador))
+        }
+
         if (novo.pontoDeJogo) partes.add(termo("game_point"))
 
         return partes.joinToString(", ")
+    }
+
+    private fun anuncioDeSacador(nome: String): String = when (idioma) {
+        Textos.PT -> "saque de $nome"
+        else -> "$nome to serve"
     }
 
     /** Numeros separados por virgula, que e o que cria a pausa entre eles. */

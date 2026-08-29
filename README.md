@@ -123,3 +123,21 @@ adb install -r app-watch-debug.apk
 - Camera em modo sombra, o experimento de deteccao por gesto
 - Partida em melhor de tres
 - Rodizio em mais de uma quadra
+
+## Correcao de regra na versao 0.6
+
+A versao anterior calculava o lado do saque pela regra simplificada, par saca pela direita. Essa regra so vale para o primeiro sacador.
+
+Quando entra o segundo sacador, os parceiros nao trocam de lado, entao ele saca do lado onde ja esta, que pode contrariar a paridade. O nucleo agora rastreia a posicao dos jogadores em quadra, o que corrige o lado do saque e permite identificar qual pessoa esta sacando.
+
+Regra de posicao: os parceiros trocam de lado sempre que a propria dupla marca ponto sacando. Ninguem troca de lado ao perder o rally.
+
+## Desenho da quadra na versao 0.7
+
+A faixa do saque passou a ter, ao lado do nome grande, um desenho da quadra vista de cima com os quatro jogadores nas posicoes atuais.
+
+Verde cheio marca quem saca. Contorno verde marca quem recebe.
+
+Detalhe geometrico: cada dupla encara a rede em sentido contrario, entao a quadra da direita de cada uma fica em pontas opostas do desenho. E isso que faz sacador e recebedor aparecerem na diagonal, como no jogo de verdade.
+
+Se o desenho parecer invertido de onde voce fica, use inverter lados no menu, que espelha placar, nomes e posicoes juntos.

@@ -3,7 +3,6 @@ package com.kriptobr.placar.tablet
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import com.kriptobr.placar.core.Analise
 import com.kriptobr.placar.core.Lado
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -37,7 +36,7 @@ object ResumoEmail {
 
     fun corpo(partida: Partida, jogadores: List<Jogador>, idioma: String): String {
         val pt = idioma == Textos.PT
-        val stats = Analise.calcular(partida.eventos, partida.primeiroSaque)
+        val stats = partida.estatisticas()
         val esq = nomeDupla(partida.duplaEsquerda, jogadores, idioma)
         val dir = nomeDupla(partida.duplaDireita, jogadores, idioma)
 

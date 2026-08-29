@@ -28,8 +28,15 @@ data class Estatisticas(
 
 object Analise {
 
-    fun calcular(eventos: List<Evento>, primeiroSaque: Lado): Estatisticas {
-        var estado = Regras.estadoInicial(primeiroSaque)
+    fun calcular(eventos: List<Evento>, primeiroSaque: Lado): Estatisticas =
+        calcular(eventos, Regras.estadoInicial(primeiroSaque))
+
+    /**
+     * Versao com estado base, para partidas que passaram por correcao manual.
+     * Sem isso a estatistica ignoraria o placar corrigido.
+     */
+    fun calcular(eventos: List<Evento>, base: EstadoJogo): Estatisticas {
+        var estado = base
 
         var ralliesEsq = 0
         var ralliesDir = 0

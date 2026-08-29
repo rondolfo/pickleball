@@ -1,6 +1,5 @@
 package com.kriptobr.placar.tablet
 
-import com.kriptobr.placar.core.Analise
 import com.kriptobr.placar.core.Lado
 
 data class ResumoJogador(
@@ -37,7 +36,7 @@ object EstatisticasJogador {
                 val lado = partida.ladoDe(idJogador) ?: return@forEach
                 jogos++
 
-                val stats = Analise.calcular(partida.eventos, partida.primeiroSaque)
+                val stats = partida.estatisticas()
                 val venceuEsquerda = stats.pontosEsquerda > stats.pontosDireita
                 val venceu = (lado == Lado.ESQUERDA && venceuEsquerda) ||
                     (lado == Lado.DIREITA && !venceuEsquerda)

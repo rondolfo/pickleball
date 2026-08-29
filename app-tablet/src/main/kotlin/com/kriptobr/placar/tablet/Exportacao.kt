@@ -3,7 +3,6 @@ package com.kriptobr.placar.tablet
 import android.content.Context
 import android.content.Intent
 import androidx.core.content.FileProvider
-import com.kriptobr.placar.core.Analise
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -29,7 +28,7 @@ object Exportacao {
         )
 
         partidas.sortedBy { it.inicio }.forEach { partida ->
-            val stats = Analise.calcular(partida.eventos, partida.primeiroSaque)
+            val stats = partida.estatisticas()
             val minutos = partida.fim?.let { (it - partida.inicio) / 60000L } ?: 0L
             val esq = partida.duplaEsquerda.ids.mapNotNull { porId[it]?.curto }.joinToString(" & ")
             val dir = partida.duplaDireita.ids.mapNotNull { porId[it]?.curto }.joinToString(" & ")

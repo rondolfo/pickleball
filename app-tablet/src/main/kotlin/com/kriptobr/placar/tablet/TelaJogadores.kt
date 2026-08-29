@@ -33,6 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.FileProvider
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.util.UUID
@@ -138,15 +139,26 @@ private fun FormularioJogador(
     var carimbo by remember { mutableStateOf(versaoFotos) }
 
     val contexto = LocalContext.current
+    val arquivoDaFoto = remember(inicial.id) { Repositorio(contexto).arquivoFoto(inicial.id) }
+
     val seletor = rememberLauncherForActivityResult(
         ActivityResultContracts.PickVisualMedia()
     ) { uri ->
-        if (uri != null) {
-            val destino = Repositorio(contexto).arquivoFoto(inicial.id)
-            if (Foto.salvar(contexto, uri, destino)) {
-                temFoto = true
-                carimbo += 1
-            }
+        if (uri != null && Foto.salvar(contexto, uri, arquivoDaFoto)) {
+            temFoto = true
+            carimbo += 1
+        }
+    }
+
+    // A camera grava direto no arquivo final, em resolucao cheia, e depois
+    // reduzimos. Em tablet e mais rapido que passar pela galeria.
+    val camera = rememberLauncherForActivityResult(
+        ActivityResultContracts.TakePicture()
+    ) { deuCerto ->
+        if (deuCerto) {
+            Foto.reduzirNoLugar(arquivoDaFoto)
+            temFoto = true
+            carimbo += 1
         }
     }
 
@@ -175,20 +187,41 @@ private fun FormularioJogador(
                     carimbo
                 )
                 Box(modifier = Modifier.width(18.dp))
-                Text(
-                    text = Textos.get("escolher_foto", idiomaUi),
-                    color = VERDE,
-                    fontSize = 16.sp,
-                    modifier = Modifier
-                        .clickable {
-                            seletor.launch(
-                                PickVisualMediaRequest(
-                                    ActivityResultContracts.PickVisualMedia.ImageOnly
+                Column {
+                    Text(
+                        text = Textos.get("tirar_foto", idiomaUi),
+                        color = VERDE,
+                        fontSize = 16.sp,
+                        modifier = Modifier
+                            .clickable {
+                                runCatching {
+                                    arquivoDaFoto.parentFile?.mkdirs()
+                                    if (!arquivoDaFoto.exists()) arquivoDaFoto.createNewFile()
+                                    val uri = FileProvider.getUriForFile(
+                                        contexto,
+                                        "${contexto.packageName}.arquivos",
+                                        arquivoDaFoto
+                                    )
+                                    camera.launch(uri)
+                                }
+                            }
+                            .padding(8.dp)
+                    )
+                    Text(
+                        text = Textos.get("escolher_foto", idiomaUi),
+                        color = CINZA_TEXTO,
+                        fontSize = 16.sp,
+                        modifier = Modifier
+                            .clickable {
+                                seletor.launch(
+                                    PickVisualMediaRequest(
+                                        ActivityResultContracts.PickVisualMedia.ImageOnly
+                                    )
                                 )
-                            )
-                        }
-                        .padding(8.dp)
-                )
+                            }
+                            .padding(8.dp)
+                    )
+                }
             }
 
             Box(modifier = Modifier.height(14.dp))

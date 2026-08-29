@@ -48,6 +48,8 @@ class MainActivity : ComponentActivity() {
     private var conectado by mutableStateOf(false)
     private var idioma by mutableStateOf("en")
     private var placar by mutableStateOf("0 . 0 . 2")
+    private var sacador by mutableStateOf("")
+    private var ladoSaque by mutableStateOf("")
     private var procura by mutableStateOf("")
     private var naFila by mutableStateOf(0)
     private var cliente: ClienteTablet? = null
@@ -61,9 +63,13 @@ class MainActivity : ComponentActivity() {
             aoReceberEstado = { estado ->
                 val texto = estado.optString("chamada", "").replace("-", " . ")
                 val idiomaDoTablet = estado.optString("idioma", "en")
+                val nome = estado.optString("sacadorNome", "")
+                val lado = estado.optString("ladoSaque", "")
                 runOnUiThread {
                     if (texto.isNotEmpty()) placar = texto
                     if (idiomaDoTablet.isNotEmpty()) idioma = idiomaDoTablet
+                    sacador = nome
+                    ladoSaque = lado
                 }
             },
             aoMudarConexao = { ligado -> runOnUiThread { conectado = ligado } },
@@ -77,6 +83,8 @@ class MainActivity : ComponentActivity() {
         setContent {
             TelaRelogio(
                 placar = placar,
+                sacador = sacador,
+                ladoSaque = ladoSaque,
                 idioma = idioma,
                 conectado = conectado,
                 procura = procura,
@@ -132,6 +140,8 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun TelaRelogio(
     placar: String,
+    sacador: String,
+    ladoSaque: String,
     idioma: String,
     conectado: Boolean,
     procura: String,
@@ -167,6 +177,24 @@ private fun TelaRelogio(
             if (naFila > 0) {
                 Text(text = "  +$naFila", color = AMBAR, fontSize = 13.sp)
             }
+        }
+
+        // quem saca, logo abaixo do placar: e a duvida mais comum em quadra
+        if (conectado && sacador.isNotEmpty()) {
+            Text(
+                text = sacador.uppercase() + if (ladoSaque.isNotEmpty()) {
+                    "  " + if (ladoSaque == "direita") {
+                        if (idioma == "pt") "DIR" else "R"
+                    } else {
+                        if (idioma == "pt") "ESQ" else "L"
+                    }
+                } else "",
+                color = VERDE,
+                fontSize = 17.sp,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                modifier = Modifier.padding(bottom = 2.dp)
+            )
         }
 
         Row(
