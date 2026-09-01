@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#000000">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Pickleball">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="estilo.css">
+<title>Pickleball Scoreboard</title>
+</head>
+<body>
+
+<div id="placar">
+  <div class="numeros">
+    <button class="lado" id="ladoEsq">
+      <span class="nome" id="nomeEsq">LEFT</span>
+      <span class="pts" id="ptsEsq">0</span>
+    </button>
+    <button class="lado" id="ladoDir">
+      <span class="nome" id="nomeDir">RIGHT</span>
+      <span class="pts" id="ptsDir">0</span>
+    </button>
+  </div>
+
+  <div class="faixa">
+    <div class="quem">
+      <div class="sacador" id="sacadorNome">LEFT</div>
+      <div class="detalhe" id="sacadorDetalhe">SERVE RIGHT . SERVER 2</div>
+    </div>
+    <div class="quadra">
+      <div class="meia">
+        <div class="quadrante" id="qEsqEsq">1</div>
+        <div class="quadrante" id="qEsqDir">2</div>
+      </div>
+      <div class="rede"></div>
+      <div class="meia">
+        <div class="quadrante" id="qDirDir">1</div>
+        <div class="quadrante" id="qDirEsq">2</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="rodape">
+    <span><span class="pontinho on" id="pontinho"></span> <span id="estadoTrava">unlocked</span></span>
+    <button class="chamada" id="chamada">0 . 0 . 2</button>
+    <span>
+      <button class="idioma" id="btIdiomaVoz">EN</button>
+      <button id="btDesfazer">undo</button>
+      <button id="btMenu">&#9881;</button>
+    </span>
+  </div>
+</div>
+
+<!-- menu -->
+<div class="tela" id="telaMenu">
+  <div class="painel">
+    <div class="cabecalho"><h2 id="tMenu">Settings</h2>
+      <button class="bt" data-fechar="telaMenu" id="tFechar1">Close</button></div>
+    <button class="item" id="mNovoJogo">New game</button>
+    <button class="item" id="mInverter">Swap sides</button>
+    <button class="item" id="mSubstituir">Substitute a player</button>
+    <button class="item" id="mCorrigir">Fix the score</button>
+    <button class="item" id="mRodizio">Rotation</button>
+    <button class="item" id="mJogadores">Players</button>
+    <button class="item" id="mHistorico">Match history</button>
+    <button class="item" id="mRanking">Leaderboard</button>
+    <button class="item" id="mIdiomaTela">Screen language</button>
+    <button class="item" id="mSideOut">Say "side out"</button>
+    <button class="item" id="mBackup">Backup</button>
+    <button class="item" id="mManual" style="color:var(--verde)">How to use</button>
+  </div>
+</div>
+
+<!-- novo jogo -->
+<div class="tela" id="telaNovoJogo">
+  <div class="painel">
+    <div class="cabecalho"><h2 id="tNovoJogo">Start a game</h2>
+      <button class="bt" data-fechar="telaNovoJogo">Close</button></div>
+    <div id="slotsNovo"></div>
+    <p style="text-align:center;font-size:18px;margin:18px 0 6px" id="tQuemSaca">Who serves first?</p>
+    <div class="acoes">
+      <button class="bt ok" id="comecarEsq">LEFT</button>
+      <button class="bt ok" id="comecarDir">RIGHT</button>
+    </div>
+  </div>
+</div>
+
+<!-- jogadores -->
+<div class="tela" id="telaJogadores">
+  <div class="cabecalho"><h2 id="tJogadores">Players</h2>
+    <button class="bt" data-fechar="telaJogadores">Close</button></div>
+  <div id="listaJogadores"></div>
+  <button class="bt ok" id="btNovoJogador" style="margin-top:14px">+ Add player</button>
+</div>
+
+<!-- formulario de jogador -->
+<div class="tela" id="telaFormulario">
+  <div class="painel">
+    <div class="cabecalho"><h2 id="tJogador">Player</h2>
+      <button class="bt" data-fechar="telaFormulario">Close</button></div>
+    <div style="display:flex;align-items:center;gap:16px;margin-bottom:10px">
+      <div class="av" id="avatarForm" style="width:70px;height:70px;font-size:24px"></div>
+      <div>
+        <label class="arquivo" for="fotoCamera" id="tTirarFoto">Take a photo</label>
+        <input type="file" id="fotoCamera" accept="image/*" capture="user">
+        <label class="arquivo" for="fotoGaleria" id="tEscolherFoto"
+               style="border-color:var(--borda);color:var(--cinza);margin-top:6px">Choose from gallery</label>
+        <input type="file" id="fotoGaleria" accept="image/*">
+      </div>
+    </div>
+    <input type="text" id="campoNome" placeholder="Full name">
+    <input type="text" id="campoApelido" placeholder="Short name">
+    <input type="email" id="campoEmail" placeholder="Email">
+    <div class="acoes">
+      <button class="bt" id="btExcluirJogador" style="color:var(--ambar)">Delete</button>
+      <button class="bt ok" id="btSalvarJogador">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- seletor -->
+<div class="tela" id="telaSeletor">
+  <div class="painel">
+    <div class="cabecalho"><h2 id="tSeletor">Choose a player</h2>
+      <button class="bt" data-fechar="telaSeletor">Close</button></div>
+    <div id="listaSeletor"></div>
+    <div class="acoes"><button class="bt alerta" id="btLimparSlot">Clear</button></div>
+  </div>
+</div>
+
+<!-- substituicao -->
+<div class="tela" id="telaSubstituir">
+  <div class="painel">
+    <div class="cabecalho"><h2 id="tSubstituir">Who is leaving?</h2>
+      <button class="bt" data-fechar="telaSubstituir">Close</button></div>
+    <div id="slotsSubstituir"></div>
+  </div>
+</div>
+
+<!-- correcao -->
+<div class="tela" id="telaCorrigir">
+  <div class="painel">
+    <div class="cabecalho"><h2 id="tCorrigir">Fix the score</h2>
+      <button class="bt" data-fechar="telaCorrigir">Close</button></div>
+    <div id="controlesCorrecao"></div>
+    <p class="aviso" id="tAvisoCorrecao"></p>
+    <div class="acoes"><button class="bt ok" id="btAplicarCorrecao">Apply</button></div>
+  </div>
+</div>
+
+<!-- rodizio -->
+<div class="tela" id="telaRodizio">
+  <div class="cabecalho"><h2 id="tRodizio">Rotation</h2>
+    <button class="bt" data-fechar="telaRodizio">Close</button></div>
+  <div id="presentes"></div>
+  <div id="sugestao" style="margin-top:16px"></div>
+</div>
+
+<!-- historico -->
+<div class="tela" id="telaHistorico">
+  <div class="cabecalho"><h2 id="tHistorico">Match history</h2>
+    <button class="bt" data-fechar="telaHistorico">Close</button></div>
+  <div id="listaHistorico"></div>
+</div>
+
+<!-- ranking -->
+<div class="tela" id="telaRanking">
+  <div class="cabecalho"><h2 id="tRanking">Leaderboard</h2>
+    <button class="bt" data-fechar="telaRanking">Close</button></div>
+  <div class="acoes" style="justify-content:flex-start">
+    <button class="bt ativo" id="btHoje">Today</button>
+    <button class="bt" id="btSempre">All time</button>
+  </div>
+  <div id="listaRanking"></div>
+  <div class="acoes">
+    <button class="bt ok" id="btEmailSessao">Email today's summary</button>
+    <button class="bt" id="btCsv">Export to CSV</button>
+  </div>
+</div>
+
+<!-- resultado -->
+<div class="tela" id="telaResultado">
+  <div class="painel">
+    <div class="cabecalho"><h2 id="tResultado">Game over</h2>
+      <button class="bt" data-fechar="telaResultado">Close</button></div>
+    <div id="corpoResultado"></div>
+    <div class="acoes">
+      <button class="bt ok" id="btEmailPartida">Email the summary</button>
+      <button class="bt" id="btNovoAposGame">New game</button>
+    </div>
+  </div>
+</div>
+
+<!-- backup -->
+<div class="tela" id="telaBackup">
+  <div class="painel">
+    <div class="cabecalho"><h2 id="tBackup">Backup</h2>
+      <button class="bt" data-fechar="telaBackup">Close</button></div>
+    <p id="tAvisoBackup" style="color:var(--cinza);font-size:15px;line-height:1.5"></p>
+    <div class="acoes">
+      <button class="bt ok" id="btExportarBackup">Save a backup</button>
+      <label class="arquivo" for="arquivoBackup" id="tImportarBackup"
+             style="border-color:var(--borda);color:#fff">Restore from a backup</label>
+      <input type="file" id="arquivoBackup" accept="application/json,.json">
+    </div>
+    <p class="aviso" id="avisoBackup"></p>
+  </div>
+</div>
+
+<!-- manual -->
+<div class="tela" id="telaManual">
+  <div class="cabecalho"><h2 id="tManual">How to use</h2>
+    <button class="bt" data-fechar="telaManual">Close</button></div>
+  <div class="secao" id="corpoManual"></div>
+</div>
+
+<script src="regras.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
