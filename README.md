@@ -141,3 +141,25 @@ Verde cheio marca quem saca. Contorno verde marca quem recebe.
 Detalhe geometrico: cada dupla encara a rede em sentido contrario, entao a quadra da direita de cada uma fica em pontas opostas do desenho. E isso que faz sacador e recebedor aparecerem na diagonal, como no jogo de verdade.
 
 Se o desenho parecer invertido de onde voce fica, use inverter lados no menu, que espelha placar, nomes e posicoes juntos.
+
+## Bluetooth na versao 0.8
+
+O relogio passou a falar com o tablet por Bluetooth de baixa energia, sem depender de rede sem fio. O tablet anuncia um servico e o relogio conecta direto.
+
+O Wi-Fi continua ativo como reserva. Se o tablet nao suportar modo periferico, ou se o Bluetooth falhar, o Wi-Fi assume sozinho e nada se perde. O ponto de status no relogio indica qual caminho esta em uso: azul e Bluetooth, verde e Wi-Fi, ambar e sem conexao.
+
+## Botoes do relogio
+
+Os botoes passaram a mostrar o nome da dupla, com faixa colorida, em vez de esquerda e direita. Quando o grupo troca de ponta, os lados deixam de significar o mesmo para quem olha, e o erro aparece. Nome nao tem esse problema.
+
+Toque longo na linha do placar inverte os lados no tablet inteiro, para quando voces trocam de ponta de verdade.
+
+## Ranking e resumo da noite
+
+A tela de estatisticas virou ranking, com filtro entre hoje e sempre, posicao, vitorias, derrotas, aproveitamento e saldo de pontos.
+
+O e-mail agora pode sair uma vez so no fim da noite, com todos os resultados do dia e o ranking, em vez de um e-mail por partida. O envio por partida continua disponivel.
+
+## Sobre a chamada de troca de saque
+
+"Side out" e o termo oficial e significa que o saque mudou de dupla, nao que a bola saiu. Como isso confunde na quadra, o padrao passou a ser anunciar apenas quem assume o saque, que e inequivoco. Quem preferir o termo oficial pode ligar no menu.

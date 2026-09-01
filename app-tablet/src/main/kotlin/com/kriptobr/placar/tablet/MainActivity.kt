@@ -1,7 +1,10 @@
 package com.kriptobr.placar.tablet
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
 import android.media.AudioManager
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -42,6 +45,7 @@ class MainActivity : ComponentActivity() {
         private const val CHAVE_IDIOMA_UI = "idioma_ui"
         private const val CHAVE_IDIOMA_VOZ = "idioma_voz"
         private const val MS_DESTRAVADO = 8_000L
+        private const val CHAVE_SIDE_OUT = "dizer_side_out"
     }
 
     private val eventos: SnapshotStateList<Evento> = mutableStateListOf()
@@ -54,7 +58,9 @@ class MainActivity : ComponentActivity() {
     private lateinit var repositorio: Repositorio
     private lateinit var voz: Voz
     private var servidor: ServidorPlacar? = null
+    private var servidorBle: ServidorBle? = null
     private lateinit var seletorBackup: ActivityResultLauncher<Array<String>>
+    private lateinit var pedidoBluetooth: ActivityResultLauncher<Array<String>>
 
     private var idPartida by mutableStateOf(UUID.randomUUID().toString())
     private var inicioPartida by mutableStateOf(System.currentTimeMillis())
@@ -68,12 +74,15 @@ class MainActivity : ComponentActivity() {
     private var sugestao by mutableStateOf<Formacao?>(null)
 
     private var clientes by mutableStateOf(0)
+    private var clientesBle by mutableStateOf(0)
+    private var bleAtivo by mutableStateOf(false)
     private var ultimoContato by mutableStateOf<Long?>(null)
     private var enderecoLocal by mutableStateOf("")
     private var travado by mutableStateOf(true)
     private var idiomaUi by mutableStateOf(Textos.EN)
     private var idiomaVoz by mutableStateOf(Textos.EN)
     private var vozIndisponivel by mutableStateOf(false)
+    private var dizerSideOut by mutableStateOf(false)
     private var versaoFotos by mutableStateOf(0)
     private var ultimaTecla by mutableStateOf("")
     private var codigoUltimaTecla by mutableStateOf<Int?>(null)
@@ -108,6 +117,10 @@ class MainActivity : ComponentActivity() {
                 WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         }
 
+        pedidoBluetooth = registerForActivityResult(
+            ActivityResultContracts.RequestMultiplePermissions()
+        ) { iniciarBluetooth() }
+
         seletorBackup = registerForActivityResult(
             ActivityResultContracts.OpenDocument()
         ) { uri ->
@@ -131,6 +144,7 @@ class MainActivity : ComponentActivity() {
         voz = Voz(this).also { motor ->
             motor.iniciar {
                 motor.definirIdioma(idiomaVoz)
+                motor.definirEstiloDeTroca(dizerSideOut)
                 vozIndisponivel = !motor.disponivel(idiomaVoz)
             }
         }
@@ -139,6 +153,7 @@ class MainActivity : ComponentActivity() {
             contexto = this,
             aoReceberRally = { id, vencedor -> registrarRally(vencedor, Origem.RELOGIO, id) },
             aoReceberDesfazer = { runOnUiThread { desfazer() } },
+            aoReceberInverter = { runOnUiThread { inverterLados() } },
             estadoJson = { estadoJson() },
             aoMudarClientes = { total -> runOnUiThread { clientes = total } },
             aoReceberEco = { enviado ->
@@ -151,6 +166,9 @@ class MainActivity : ComponentActivity() {
             }
         ).also { it.iniciar() }
 
+        pedirPermissoesBluetooth()
+        iniciarBluetooth()
+
         setContent {
             val estado = estadoAtual()
 
@@ -162,7 +180,7 @@ class MainActivity : ComponentActivity() {
                 posicoes = posicoesDaQuadra(estado),
                 idiomaUi = idiomaUi,
                 idiomaVoz = idiomaVoz,
-                conectado = clientes > 0,
+                conectado = clientes + clientesBle > 0,
                 endereco = enderecoLocal,
                 travado = travado,
                 onPonto = { lado -> registrarRally(lado, Origem.TOQUE); adiarTrava() },
@@ -203,6 +221,12 @@ class MainActivity : ComponentActivity() {
                         historico = repositorio.listarPartidas(1)
                         menuAberto = false
                         telaStatus = true
+                    },
+                    dizerSideOut = dizerSideOut,
+                    onAlternarSideOut = {
+                        dizerSideOut = !dizerSideOut
+                        voz.definirEstiloDeTroca(dizerSideOut)
+                        salvarPreferencias()
                     },
                     onTeste = { menuAberto = false; telaTeste = true },
                     onBackup = { avisoBackup = ""; menuAberto = false; telaBackup = true },
@@ -308,6 +332,7 @@ class MainActivity : ComponentActivity() {
                     idiomaUi = idiomaUi,
                     versaoFotos = versaoFotos,
                     onExportar = { exportarCsv() },
+                    onEmailSessao = { doDia -> enviarEmailSessao(doDia) },
                     onFechar = { telaEstatisticas = false }
                 )
             }
@@ -333,7 +358,7 @@ class MainActivity : ComponentActivity() {
             if (telaStatus) {
                 TelaStatus(
                     idiomaUi = idiomaUi,
-                    relogioConectado = clientes > 0,
+                    relogioConectado = clientes + clientesBle > 0,
                     segundosDesdeContato = ultimoContato?.let {
                         (System.currentTimeMillis() - it) / 1000
                     },
@@ -400,7 +425,58 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /**
+     * Bluetooth roda ao lado do Wi-Fi, nao no lugar dele. Se o tablet nao
+     * suportar modo periferico, o Wi-Fi continua atendendo normalmente.
+     */
+    private fun iniciarBluetooth() {
+        if (!temPermissoesBluetooth()) return
+        if (servidorBle != null) return
+
+        val servico = ServidorBle(
+            contexto = this,
+            aoReceberRally = { id, vencedor -> registrarRally(vencedor, Origem.RELOGIO, id) },
+            aoReceberDesfazer = { runOnUiThread { desfazer() } },
+            aoReceberInverter = { runOnUiThread { inverterLados() } },
+            estadoJson = { estadoJson() },
+            aoMudarClientes = { total -> runOnUiThread { clientesBle = total } },
+            aoReceberEco = { enviado ->
+                val agora = System.currentTimeMillis()
+                runOnUiThread { tempoIdaEVolta = agora - enviado }
+            },
+            aoTerContato = {
+                val agora = System.currentTimeMillis()
+                runOnUiThread { ultimoContato = agora }
+            }
+        )
+        val subiu = servico.iniciar()
+        servidorBle = if (subiu) servico else null
+        bleAtivo = subiu
+    }
+
+    private fun temPermissoesBluetooth(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return true
+        return listOf(
+            Manifest.permission.BLUETOOTH_ADVERTISE,
+            Manifest.permission.BLUETOOTH_CONNECT
+        ).all {
+            checkSelfPermission(it) == PackageManager.PERMISSION_GRANTED
+        }
+    }
+
+    private fun pedirPermissoesBluetooth() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
+        if (temPermissoesBluetooth()) return
+        pedidoBluetooth.launch(
+            arrayOf(
+                Manifest.permission.BLUETOOTH_ADVERTISE,
+                Manifest.permission.BLUETOOTH_CONNECT
+            )
+        )
+    }
+
     override fun onDestroy() {
+        servidorBle?.parar()
         tarefaDeTrava?.let { relogioDeTrava.removeCallbacks(it) }
         voz.liberar()
         servidor?.parar()
@@ -459,7 +535,7 @@ class MainActivity : ComponentActivity() {
             val novo = estadoAtual()
 
             voz.anunciar(anterior, novo, nomeDoSacador(novo))
-            servidor?.transmitir(estadoJson())
+            transmitirEstado()
             salvarAndamento()
 
             if (novo.encerrado) encerrarPartida()
@@ -472,7 +548,7 @@ class MainActivity : ComponentActivity() {
         val removido = eventos.removeAt(eventos.lastIndex)
         idsVistos.remove(removido.id)
         partidaEncerrada = null
-        servidor?.transmitir(estadoJson())
+        transmitirEstado()
         salvarAndamento()
     }
 
@@ -482,7 +558,7 @@ class MainActivity : ComponentActivity() {
         eventos.clear()
         idsVistos.clear()
         partidaEncerrada = null
-        servidor?.transmitir(estadoJson())
+        transmitirEstado()
         salvarAndamento()
     }
 
@@ -512,7 +588,7 @@ class MainActivity : ComponentActivity() {
         travado = true
         escalacoes.add(Escalacao(inicioPartida, duplaEsquerda, duplaDireita))
         repositorio.limparAtual()
-        servidor?.transmitir(estadoJson())
+        transmitirEstado()
         salvarAndamento()
     }
 
@@ -545,7 +621,7 @@ class MainActivity : ComponentActivity() {
         duplaEsquerda = duplaDireita
         duplaDireita = guardada
         escalacoes.add(Escalacao(System.currentTimeMillis(), duplaEsquerda, duplaDireita))
-        servidor?.transmitir(estadoJson())
+        transmitirEstado()
         salvarAndamento()
     }
 
@@ -693,7 +769,12 @@ class MainActivity : ComponentActivity() {
 
         historico = repositorio.listarPartidas()
         versaoFotos += 1
-        servidor?.transmitir(estadoJson())
+        transmitirEstado()
+    }
+
+    private fun enviarEmailSessao(partidasDoDia: List<Partida>) {
+        if (partidasDoDia.isEmpty()) return
+        ResumoEmail.abrirSessao(this, partidasDoDia, jogadores.toList(), idiomaUi)
     }
 
     private fun exportarCsv() {
@@ -738,23 +819,32 @@ class MainActivity : ComponentActivity() {
     private fun trocarIdiomaTela() {
         idiomaUi = if (idiomaUi == Textos.EN) Textos.PT else Textos.EN
         salvarPreferencias()
-        servidor?.transmitir(estadoJson())
+        transmitirEstado()
     }
 
     private fun carregarPreferencias() {
         val prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         idiomaUi = prefs.getString(CHAVE_IDIOMA_UI, Textos.EN) ?: Textos.EN
         idiomaVoz = prefs.getString(CHAVE_IDIOMA_VOZ, Textos.EN) ?: Textos.EN
+        dizerSideOut = prefs.getBoolean(CHAVE_SIDE_OUT, false)
     }
 
     private fun salvarPreferencias() {
         getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putString(CHAVE_IDIOMA_UI, idiomaUi)
             .putString(CHAVE_IDIOMA_VOZ, idiomaVoz)
+            .putBoolean(CHAVE_SIDE_OUT, dizerSideOut)
             .apply()
     }
 
     // ---------- rede ----------
+
+    /** O mesmo estado vai por Wi-Fi e por Bluetooth, para nao importar qual esta em uso. */
+    private fun transmitirEstado() {
+        val json = estadoJson()
+        servidor?.transmitir(json)
+        servidorBle?.transmitir(json)
+    }
 
     private fun estadoJson(): String {
         val estado = estadoAtual()
@@ -769,6 +859,8 @@ class MainActivity : ComponentActivity() {
             put("pontoDeJogo", estado.pontoDeJogo)
             put("idioma", idiomaUi)
             put("sacadorNome", nomeDoSacador(estado))
+            put("nomeEsq", nomeDoLado(Lado.ESQUERDA))
+            put("nomeDir", nomeDoLado(Lado.DIREITA))
             put("ladoSaque", estado.ladoDoSaque)
         }.toString()
     }

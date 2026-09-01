@@ -122,6 +122,94 @@ object ResumoEmail {
         }.getOrDefault(false)
     }
 
+    /**
+     * Resumo da noite inteira, em vez de um e-mail por partida.
+     * Sai uma vez so, no fim, com o ranking do dia.
+     */
+    fun corpoSessao(
+        partidas: List<Partida>,
+        jogadores: List<Jogador>,
+        idioma: String
+    ): String {
+        val pt = idioma == Textos.PT
+        val porId = jogadores.associateBy { it.id }
+        val linhas = mutableListOf<String>()
+
+        linhas.add(if (pt) "Resumo da noite" else "Session summary")
+        linhas.add("")
+        linhas.add(formatoData(idioma).format(Date(partidas.minOfOrNull { it.inicio } ?: 0L)))
+        linhas.add(
+            if (pt) "Partidas: ${partidas.size}" else "Games played: ${partidas.size}"
+        )
+        linhas.add("")
+        linhas.add(if (pt) "Resultados" else "Results")
+
+        partidas.sortedBy { it.inicio }.forEach { partida ->
+            val stats = partida.estatisticas()
+            val esq = nomeDupla(partida.duplaEsquerda, jogadores, idioma)
+            val dir = nomeDupla(partida.duplaDireita, jogadores, idioma)
+            linhas.add("$esq ${stats.pontosEsquerda}  x  ${stats.pontosDireita} $dir")
+        }
+
+        val ranking = EstatisticasJogador.ranking(partidas, jogadores)
+        if (ranking.isNotEmpty()) {
+            linhas.add("")
+            linhas.add(if (pt) "Ranking do dia" else "Standings")
+            ranking.forEachIndexed { indice, resumo ->
+                val nome = porId[resumo.id]?.curto ?: "?"
+                val saldo = if (resumo.saldo >= 0) "+${resumo.saldo}" else "${resumo.saldo}"
+                linhas.add(
+                    if (pt) {
+                        "${indice + 1}. $nome  ${resumo.vitorias}v ${resumo.derrotas}d  " +
+                            "${resumo.aproveitamento}%  saldo $saldo"
+                    } else {
+                        "${indice + 1}. $nome  ${resumo.vitorias}W ${resumo.derrotas}L  " +
+                            "${resumo.aproveitamento}%  diff $saldo"
+                    }
+                )
+            }
+        }
+
+        linhas.add("")
+        linhas.add(
+            if (pt) "Enviado pelo Placar Pickleball"
+            else "Sent from Pickleball Scoreboard"
+        )
+        return linhas.joinToString("\n")
+    }
+
+    fun abrirSessao(
+        contexto: Context,
+        partidas: List<Partida>,
+        jogadores: List<Jogador>,
+        idioma: String
+    ): Boolean {
+        val destinos = partidas
+            .flatMap { destinatarios(it, jogadores).toList() }
+            .distinct()
+            .toTypedArray()
+        if (destinos.isEmpty()) return false
+
+        val assunto = if (idioma == Textos.PT) {
+            "Resumo da noite de pickleball, " +
+                formatoData(idioma).format(Date(partidas.minOf { it.inicio }))
+        } else {
+            "Pickleball session summary, " +
+                formatoData(idioma).format(Date(partidas.minOf { it.inicio }))
+        }
+
+        val intencao = Intent(Intent.ACTION_SENDTO).apply {
+            data = Uri.parse("mailto:")
+            putExtra(Intent.EXTRA_EMAIL, destinos)
+            putExtra(Intent.EXTRA_SUBJECT, assunto)
+            putExtra(Intent.EXTRA_TEXT, corpoSessao(partidas, jogadores, idioma))
+        }
+        return runCatching {
+            contexto.startActivity(intencao)
+            true
+        }.getOrDefault(false)
+    }
+
     fun nomeDupla(dupla: Dupla, jogadores: List<Jogador>, idioma: String): String {
         val porId = jogadores.associateBy { it.id }
         val nomes = dupla.ids.mapNotNull { porId[it]?.curto }

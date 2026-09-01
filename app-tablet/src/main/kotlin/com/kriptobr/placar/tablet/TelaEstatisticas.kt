@@ -14,6 +14,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -28,13 +32,15 @@ fun TelaEstatisticas(
     idiomaUi: String,
     versaoFotos: Int,
     onExportar: () -> Unit,
+    onEmailSessao: (List<Partida>) -> Unit,
     onFechar: () -> Unit
 ) {
+    var soHoje by remember { mutableStateOf(true) }
+
     val porId = jogadores.associateBy { it.id }
-    val resumos = jogadores
-        .map { EstatisticasJogador.calcular(partidas, it.id) }
-        .filter { it.partidas > 0 }
-        .sortedWith(compareByDescending<ResumoJogador> { it.aproveitamento }.thenByDescending { it.partidas })
+    val doDia = EstatisticasJogador.doDia(partidas)
+    val recorte = if (soHoje) doDia else partidas
+    val resumos = EstatisticasJogador.ranking(recorte, jogadores)
 
     Box(
         modifier = Modifier
@@ -42,11 +48,29 @@ fun TelaEstatisticas(
             .background(Color(0xF7000000))
     ) {
         Column(modifier = Modifier.padding(28.dp)) {
-            Cabecalho(Textos.get("estatisticas", idiomaUi), idiomaUi, onFechar)
+            Cabecalho(Textos.get("ranking", idiomaUi), idiomaUi, onFechar)
+
+            Row(modifier = Modifier.padding(bottom = 10.dp)) {
+                Botao(
+                    Textos.get("hoje", idiomaUi),
+                    if (soHoje) VERDE else CINZA_TEXTO
+                ) { soHoje = true }
+                Botao(
+                    Textos.get("sempre", idiomaUi),
+                    if (!soHoje) VERDE else CINZA_TEXTO
+                ) { soHoje = false }
+                Text(
+                    "${recorte.size} ${Textos.get("jogos", idiomaUi)}",
+                    color = CINZA_TEXTO,
+                    fontSize = 14.sp,
+                    modifier = Modifier.padding(top = 14.dp, start = 10.dp)
+                )
+            }
 
             if (resumos.isEmpty()) {
                 Text(
-                    Textos.get("sem_dados", idiomaUi),
+                    if (soHoje) Textos.get("sem_jogos_hoje", idiomaUi)
+                    else Textos.get("sem_dados", idiomaUi),
                     color = CINZA_TEXTO,
                     fontSize = 16.sp,
                     modifier = Modifier.padding(vertical = 20.dp)
@@ -56,6 +80,7 @@ fun TelaEstatisticas(
             LazyColumn(modifier = Modifier.weight(1f)) {
                 items(resumos, key = { it.id }) { resumo ->
                     val jogador = porId[resumo.id] ?: return@items
+                    val posicao = resumos.indexOf(resumo) + 1
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -64,6 +89,13 @@ fun TelaEstatisticas(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                "$posicao",
+                                color = if (posicao <= 3) VERDE else CINZA_TEXTO,
+                                fontSize = 20.sp,
+                                fontFamily = FontFamily.Monospace,
+                                modifier = Modifier.width(38.dp)
+                            )
                             Avatar(jogador, 44.dp, versaoFotos)
                             Box(modifier = Modifier.width(14.dp))
                             Column {
@@ -90,12 +122,20 @@ fun TelaEstatisticas(
                         }
 
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                "${resumo.vitorias} ${Textos.get("vitorias", idiomaUi)}  .  " +
-                                    "${resumo.derrotas} ${Textos.get("derrotas", idiomaUi)}",
-                                color = CINZA_TEXTO,
-                                fontSize = 14.sp
-                            )
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text(
+                                    "${resumo.vitorias} ${Textos.get("vitorias", idiomaUi)}  .  " +
+                                        "${resumo.derrotas} ${Textos.get("derrotas", idiomaUi)}",
+                                    color = CINZA_TEXTO,
+                                    fontSize = 14.sp
+                                )
+                                Text(
+                                    Textos.get("saldo", idiomaUi) + "  " +
+                                        (if (resumo.saldo >= 0) "+" else "") + resumo.saldo,
+                                    color = if (resumo.saldo >= 0) VERDE else AMBAR,
+                                    fontSize = 12.sp
+                                )
+                            }
                             Box(modifier = Modifier.width(18.dp))
                             Text(
                                 "${resumo.aproveitamento}%",
@@ -109,7 +149,10 @@ fun TelaEstatisticas(
             }
 
             Box(modifier = Modifier.height(8.dp))
-            Botao(Textos.get("exportar", idiomaUi), VERDE) { onExportar() }
+            Row {
+                Botao(Textos.get("email_sessao", idiomaUi), VERDE) { onEmailSessao(doDia) }
+                Botao(Textos.get("exportar", idiomaUi), Color.White) { onExportar() }
+            }
         }
     }
 }

@@ -34,6 +34,7 @@ class ServidorPlacar(
     private val contexto: Context,
     private val aoReceberRally: (id: String, vencedor: Lado) -> Unit,
     private val aoReceberDesfazer: () -> Unit,
+    private val aoReceberInverter: () -> Unit = {},
     private val estadoJson: () -> String,
     private val aoMudarClientes: (Int) -> Unit,
     private val aoReceberEco: (Long) -> Unit = {},
@@ -131,6 +132,10 @@ class ServidorPlacar(
                 }
                 Protocolo.TIPO_DESFAZER -> {
                     aoReceberDesfazer()
+                    null
+                }
+                Protocolo.TIPO_INVERTER -> {
+                    aoReceberInverter()
                     null
                 }
                 Protocolo.TIPO_PING -> estadoJson()

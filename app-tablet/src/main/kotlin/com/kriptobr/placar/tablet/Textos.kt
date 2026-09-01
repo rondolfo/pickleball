@@ -125,7 +125,15 @@ object Textos {
             "importar_backup" to "Restore from a backup",
             "aviso_backup" to "The backup holds players, photos, matches and rotation. Save it somewhere safe after you enter everyone. Restoring replaces what is on this tablet.",
             "backup_ok" to "Done.",
-            "backup_erro" to "That file could not be read."
+            "backup_erro" to "That file could not be read.",
+            "dizer_side_out" to "Say \"side out\" on serve change",
+            "ranking" to "Leaderboard",
+            "hoje" to "Today",
+            "sempre" to "All time",
+            "email_sessao" to "Email today's summary",
+            "jogos" to "games",
+            "saldo" to "point diff",
+            "sem_jogos_hoje" to "No games played today."
         ),
         PT to mapOf(
             "esquerda" to "ESQUERDA",
@@ -241,7 +249,15 @@ object Textos {
             "importar_backup" to "Restaurar de um backup",
             "aviso_backup" to "O backup guarda jogadores, fotos, partidas e rodizio. Guarde num lugar seguro depois de cadastrar todo mundo. Restaurar substitui o que esta neste tablet.",
             "backup_ok" to "Pronto.",
-            "backup_erro" to "Nao foi possivel ler esse arquivo."
+            "backup_erro" to "Nao foi possivel ler esse arquivo.",
+            "dizer_side_out" to "Falar \"side out\" na troca de saque",
+            "ranking" to "Ranking",
+            "hoje" to "Hoje",
+            "sempre" to "Sempre",
+            "email_sessao" to "Enviar o resumo de hoje",
+            "jogos" to "jogos",
+            "saldo" to "saldo",
+            "sem_jogos_hoje" to "Nenhum jogo hoje ainda."
         )
     )
 

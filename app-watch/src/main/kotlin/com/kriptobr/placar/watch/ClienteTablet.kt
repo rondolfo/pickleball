@@ -125,6 +125,11 @@ class ClienteTablet(
         imediatas.trySend(mensagem)
     }
 
+    fun enviarInverter() {
+        val mensagem = JSONObject().apply { put("tipo", Protocolo.TIPO_INVERTER) }.toString()
+        imediatas.trySend(mensagem)
+    }
+
     fun pontosNaFila(): Int = pendentes.size
 
     // ---------- conexao ----------

@@ -27,6 +27,7 @@ class Voz(private val contexto: Context) {
     private var motor: TextToSpeech? = null
     private var pronto = false
     private var idioma = Textos.EN
+    private var anunciarSideOut = false
     private var pendente: Runnable? = null
     private var ultimaFala: String = ""
 
@@ -38,6 +39,15 @@ class Voz(private val contexto: Context) {
                 aoFicarPronto()
             }
         }
+    }
+
+    /**
+     * "Side out" e o termo oficial e significa apenas que o saque mudou de
+     * dupla, nao que a bola saiu. Como isso confunde quem esta jogando,
+     * o padrao passou a ser anunciar quem assume o saque, que e inequivoco.
+     */
+    fun definirEstiloDeTroca(usarSideOut: Boolean) {
+        anunciarSideOut = usarSideOut
     }
 
     fun definirIdioma(novo: String) {
@@ -132,7 +142,7 @@ class Voz(private val contexto: Context) {
             return partes.joinToString(", ")
         }
 
-        if (novo.sacando != anterior.sacando) partes.add(termo("side_out"))
+        if (novo.sacando != anterior.sacando && anunciarSideOut) partes.add(termo("side_out"))
 
         partes.add(chamadaFalada(novo))
 

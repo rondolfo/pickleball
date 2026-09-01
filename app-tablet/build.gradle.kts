@@ -12,8 +12,8 @@ android {
         applicationId = "com.kriptobr.placar.tablet"
         minSdk = 26
         targetSdk = 35
-        versionCode = 7
-        versionName = "0.7-quadra"
+        versionCode = 8
+        versionName = "0.8-bluetooth"
     }
 
     signingConfigs {

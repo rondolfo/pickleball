@@ -26,6 +26,8 @@ fun MenuAjustes(
     idiomaUi: String,
     idiomaVoz: String,
     vozIndisponivel: Boolean,
+    dizerSideOut: Boolean,
+    onAlternarSideOut: () -> Unit,
     onNovoGame: () -> Unit,
     onInverter: () -> Unit,
     onDuplas: () -> Unit,
@@ -85,6 +87,10 @@ fun MenuAjustes(
             ItemMenu(
                 Textos.get("idioma_tela", idiomaUi) + "   " + idiomaUi.uppercase(),
                 onTrocarIdiomaTela
+            )
+            ItemMenu(
+                Textos.get("dizer_side_out", idiomaUi) + "   " + if (dizerSideOut) "ON" else "OFF",
+                onAlternarSideOut
             )
             ItemMenu(Textos.get("repetir", idiomaUi), onRepetir)
 

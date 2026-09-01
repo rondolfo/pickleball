@@ -2,6 +2,8 @@ package com.kriptobr.placar.tablet
 
 import com.kriptobr.placar.core.Lado
 
+import java.util.Calendar
+
 data class ResumoJogador(
     val id: String,
     val partidas: Int,
@@ -11,8 +13,12 @@ data class ResumoJogador(
     val vezesComParceiro: Int,
     val melhorParceiro: String?,
     val vitoriasComMelhorParceiro: Int,
-    val jogosComMelhorParceiro: Int
+    val jogosComMelhorParceiro: Int,
+    val pontosFeitos: Int = 0,
+    val pontosSofridos: Int = 0
 ) {
+    val saldo: Int get() = pontosFeitos - pontosSofridos
+
     val aproveitamento: Int
         get() = if (partidas == 0) 0 else (vitorias * 100) / partidas
 }
@@ -28,6 +34,8 @@ object EstatisticasJogador {
     fun calcular(partidas: List<Partida>, idJogador: String): ResumoJogador {
         var jogos = 0
         var vitorias = 0
+        var feitos = 0
+        var sofridos = 0
         val contagemParceiro = mutableMapOf<String, Int>()
         val vitoriasParceiro = mutableMapOf<String, Int>()
 
@@ -41,6 +49,14 @@ object EstatisticasJogador {
                 val venceu = (lado == Lado.ESQUERDA && venceuEsquerda) ||
                     (lado == Lado.DIREITA && !venceuEsquerda)
                 if (venceu) vitorias++
+
+                if (lado == Lado.ESQUERDA) {
+                    feitos += stats.pontosEsquerda
+                    sofridos += stats.pontosDireita
+                } else {
+                    feitos += stats.pontosDireita
+                    sofridos += stats.pontosEsquerda
+                }
 
                 parceirosNaPartida(partida, idJogador, lado).forEach { parceiro ->
                     contagemParceiro[parceiro] = (contagemParceiro[parceiro] ?: 0) + 1
@@ -62,9 +78,32 @@ object EstatisticasJogador {
             vezesComParceiro = maisFrequente?.value ?: 0,
             melhorParceiro = melhor?.key,
             vitoriasComMelhorParceiro = melhor?.value ?: 0,
-            jogosComMelhorParceiro = melhor?.let { contagemParceiro[it.key] } ?: 0
+            jogosComMelhorParceiro = melhor?.let { contagemParceiro[it.key] } ?: 0,
+            pontosFeitos = feitos,
+            pontosSofridos = sofridos
         )
     }
+
+    /** Partidas do dia corrente, que e o recorte de uma noite de jogo. */
+    fun doDia(partidas: List<Partida>, quando: Long = System.currentTimeMillis()): List<Partida> {
+        val referencia = Calendar.getInstance().apply { timeInMillis = quando }
+        return partidas.filter { partida ->
+            val dela = Calendar.getInstance().apply { timeInMillis = partida.inicio }
+            dela.get(Calendar.YEAR) == referencia.get(Calendar.YEAR) &&
+                dela.get(Calendar.DAY_OF_YEAR) == referencia.get(Calendar.DAY_OF_YEAR)
+        }
+    }
+
+    /** Ranking pronto, ja ordenado. Empate resolvido por saldo e depois por jogos. */
+    fun ranking(partidas: List<Partida>, jogadores: List<Jogador>): List<ResumoJogador> =
+        jogadores
+            .map { calcular(partidas, it.id) }
+            .filter { it.partidas > 0 }
+            .sortedWith(
+                compareByDescending<ResumoJogador> { it.aproveitamento }
+                    .thenByDescending { it.saldo }
+                    .thenByDescending { it.partidas }
+            )
 
     private fun parceirosNaPartida(
         partida: Partida,
