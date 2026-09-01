@@ -37,7 +37,9 @@ const T = {
     aviso_backup:"The backup holds players, matches and rotation. Save it somewhere safe after you enter everyone. Restoring replaces what is on this device.",
     backup_ok:"Done.", backup_erro:"That file could not be read.",
     pontos_esq:"Left points", pontos_dir:"Right points",
-    sacando_agora:"Serving", numero_sacador:"Server number", aplicar:"Apply"
+    sacando_agora:"Serving", numero_sacador:"Server number", aplicar:"Apply",
+    voz:"Voice", velocidade:"Speed", testar:"Test", voz_padrao:"System default",
+    sugerida:"suggested", sem_vozes:"No voice installed for this language on this device."
   },
   pt: {
     esquerda:"ESQUERDA", direita:"DIREITA", sacador:"SACADOR",
@@ -74,7 +76,9 @@ const T = {
     aviso_backup:"O backup guarda jogadores, partidas e rodizio. Guarde num lugar seguro depois de cadastrar todo mundo. Restaurar substitui o que esta neste aparelho.",
     backup_ok:"Pronto.", backup_erro:"Nao foi possivel ler esse arquivo.",
     pontos_esq:"Pontos da esquerda", pontos_dir:"Pontos da direita",
-    sacando_agora:"Sacando", numero_sacador:"Numero do sacador", aplicar:"Aplicar"
+    sacando_agora:"Sacando", numero_sacador:"Numero do sacador", aplicar:"Aplicar",
+    voz:"Voz", velocidade:"Velocidade", testar:"Testar", voz_padrao:"Padrao do sistema",
+    sugerida:"sugerida", sem_vozes:"Nenhuma voz deste idioma instalada neste aparelho."
   }
 };
 const t = (k) => (T[P.idiomaUi] && T[P.idiomaUi][k]) || T.en[k] || k;
@@ -96,6 +100,9 @@ let jogadores = ler(CHAVES.jogadores, []);
 let partidas  = ler(CHAVES.partidas, []);
 let rodizio   = ler(CHAVES.rodizio, { rodada:0, ultima:{}, jogos:{}, parceiro:{}, adversarios:{}, presentes:[] });
 let P         = ler(CHAVES.prefs, { idiomaUi:"en", idiomaVoz:"en", sideOut:false, travado:false });
+if (P.velocidade === undefined) P.velocidade = 1.15;
+if (P.vozEn === undefined) P.vozEn = null;
+if (P.vozPt === undefined) P.vozPt = null;
 
 const partidaVazia = () => ({
   id: String(Date.now()) + Math.random().toString(16).slice(2),
@@ -146,15 +153,54 @@ function liberarVoz() {
   } catch (e) {}
 }
 
+// A API do navegador nao informa o sexo da voz, entao a unica forma honesta
+// e listar o que existe no aparelho e deixar pre-selecionada uma das
+// conhecidas como femininas em cada idioma.
+const VOZES_SUGERIDAS = {
+  en: ["Samantha","Karen","Moira","Tessa","Victoria","Allison","Ava","Susan","Zoe",
+       "Serena","Fiona","Google US English","Microsoft Aria","Microsoft Zira","Microsoft Jenny"],
+  pt: ["Luciana","Joana","Fernanda","Google portugues do Brasil",
+       "Google português do Brasil","Microsoft Maria","Microsoft Francisca"]
+};
+
+function vozesDoIdioma(idioma) {
+  if (!window.speechSynthesis) return [];
+  const prefixo = idioma === "pt" ? "pt" : "en";
+  return speechSynthesis.getVoices().filter((v) => (v.lang || "").toLowerCase().startsWith(prefixo));
+}
+
+const ehSugerida = (nome, idioma) =>
+  (VOZES_SUGERIDAS[idioma] || []).some((s) => (nome || "").toLowerCase().includes(s.toLowerCase()));
+
+function vozEscolhida(idioma) {
+  const lista = vozesDoIdioma(idioma);
+  if (!lista.length) return null;
+  const salva = idioma === "pt" ? P.vozPt : P.vozEn;
+  if (salva) {
+    const achada = lista.find((v) => v.name === salva);
+    if (achada) return achada;
+  }
+  return lista.find((v) => ehSugerida(v.name, idioma)) || null;
+}
+
 function falarAgora(texto) {
   if (!window.speechSynthesis || !texto) return;
   try {
     speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(texto);
     u.lang = P.idiomaVoz === "pt" ? "pt-BR" : "en-US";
-    u.rate = 1;
+    u.rate = P.velocidade || 1.15;
+    const escolhida = vozEscolhida(P.idiomaVoz);
+    if (escolhida) u.voice = escolhida;
     speechSynthesis.speak(u);
   } catch (e) {}
+}
+
+// no iOS a lista de vozes chega depois, entao vale redesenhar quando chegar
+if (window.speechSynthesis) {
+  speechSynthesis.onvoiceschanged = () => {
+    if ($("telaVoz") && $("telaVoz").classList.contains("aberta")) desenharVozes();
+  };
 }
 
 // Termos ficam em ingles nos dois idiomas, porque e o que os jogadores usam.
@@ -353,7 +399,7 @@ function traduzirTelas() {
     tQuemSaca:"quem_saca", tTirarFoto:"tirar_foto", tEscolherFoto:"escolher_foto",
     mNovoJogo:"novo_game", mInverter:"inverter", mSubstituir:"substituir", mCorrigir:"corrigir",
     mRodizio:"rodizio", mJogadores:"jogadores", mHistorico:"historico", mRanking:"ranking",
-    mIdiomaTela:"idioma_tela", mBackup:"backup", mManual:"manual",
+    mIdiomaTela:"idioma_tela", mBackup:"backup", mManual:"manual", mVoz:"voz",
     btNovoJogador:"novo_jogador", btSalvarJogador:"salvar", btExcluirJogador:"excluir",
     btLimparSlot:"limpar", btAplicarCorrecao:"aplicar", btHoje:"hoje", btSempre:"sempre",
     btEmailSessao:"email_sessao", btCsv:"exportar", btEmailPartida:"enviar_email",
@@ -875,7 +921,8 @@ const MANUAL = {
       "Tap EN or PT in the footer to switch the voice language.",
       "The new server's name is announced whenever the serve changes hands.",
       "Tap the small call at the bottom to repeat the last announcement.",
-      "On iPhone and iPad the voice only starts after your first tap on the screen."]],
+      "On iPhone and iPad the voice only starts after your first tap on the screen.",
+      "Gear, then Voice, to pick which voice speaks and how fast. The list shows whatever voices this device has installed."]],
     ["Players and rotation", [
       "Gear, then Players. Only the full name is required. Photo and email are optional.",
       "Gear, then Rotation, to mark who is here and get the next pairing suggested.",
@@ -910,7 +957,8 @@ const MANUAL = {
       "Toque em EN ou PT no rodape para trocar o idioma da voz.",
       "O nome de quem assume o saque e anunciado sempre que o saque muda de dupla.",
       "Toque na chamada pequena do rodape para repetir o ultimo anuncio.",
-      "No iPhone e no iPad a voz so comeca depois do seu primeiro toque na tela."]],
+      "No iPhone e no iPad a voz so comeca depois do seu primeiro toque na tela.",
+      "Engrenagem e depois Voz, para escolher qual voz fala e a velocidade. A lista mostra as vozes instaladas neste aparelho."]],
     ["Jogadores e rodizio", [
       "Engrenagem e depois Jogadores. So o nome completo e obrigatorio. Foto e e-mail sao opcionais.",
       "Engrenagem e depois Rodizio, para marcar quem esta presente e receber a proxima formacao sugerida.",
@@ -930,6 +978,55 @@ function desenharManual() {
   $("corpoManual").innerHTML = (MANUAL[P.idiomaUi] || MANUAL.en)
     .map(([titulo, itens]) => `<h3>${titulo}</h3><ul>${itens.map((i) => `<li>${i}</li>`).join("")}</ul>`)
     .join("");
+}
+
+// ---------- tela de voz ----------
+let idiomaVozEditando = null;
+
+function desenharVozes() {
+  const idioma = idiomaVozEditando || P.idiomaVoz;
+  $("abaEn").className = "bt" + (idioma === "en" ? " ativo" : "");
+  $("abaPt").className = "bt" + (idioma === "pt" ? " ativo" : "");
+
+  const lista = vozesDoIdioma(idioma);
+  const salva = idioma === "pt" ? P.vozPt : P.vozEn;
+  const atualEscolhida = vozEscolhida(idioma);
+
+  if (!lista.length) {
+    $("listaVozes").innerHTML = `<p class="vazio">${t("sem_vozes")}</p>`;
+  } else {
+    $("listaVozes").innerHTML = lista.map((v) => {
+      const marcada = atualEscolhida && v.name === atualEscolhida.name;
+      return `<button class="linha" data-voz="${v.name}">
+        <span style="width:18px;height:18px;flex:none;border-radius:50%;
+          border:2px solid ${marcada ? "var(--verde)" : "var(--borda)"};
+          background:${marcada ? "var(--verde)" : "transparent"}"></span>
+        <span style="flex:1"><div>${v.name}</div>
+        <div class="mini">${v.lang}${ehSugerida(v.name, idioma) ? "  .  " + t("sugerida") : ""}</div></span>
+      </button>`;
+    }).join("");
+    $("listaVozes").querySelectorAll("[data-voz]").forEach((b) =>
+      b.addEventListener("click", () => {
+        if (idioma === "pt") P.vozPt = b.dataset.voz; else P.vozEn = b.dataset.voz;
+        gravar(CHAVES.prefs, P);
+        desenharVozes();
+        P.idiomaVoz = idioma; desenhar();
+        falarAgora(idioma === "pt" ? "4, 2, 1, saque de Jeff" : "4, 2, 1, Jeff to serve");
+      }));
+  }
+
+  $("tVoz").textContent = t("voz");
+  $("tVelocidade").textContent = t("velocidade");
+  $("btTestarVoz").textContent = t("testar");
+  $("valorVelocidade").textContent = (P.velocidade || 1.15).toFixed(2);
+  $("velocidade").value = P.velocidade || 1.15;
+}
+
+function abrirVoz() {
+  idiomaVozEditando = P.idiomaVoz;
+  liberarVoz();
+  desenharVozes();
+  abrir("telaVoz");
 }
 
 // ---------- backup ----------
@@ -984,6 +1081,23 @@ $("mRodizio").addEventListener("click", () => { fechar("telaMenu"); abrirRodizio
 $("mJogadores").addEventListener("click", () => { fechar("telaMenu"); listarJogadores(); abrir("telaJogadores"); });
 $("mHistorico").addEventListener("click", () => { fechar("telaMenu"); desenharHistorico(); abrir("telaHistorico"); });
 $("mRanking").addEventListener("click", () => { fechar("telaMenu"); desenharRanking(); abrir("telaRanking"); });
+$("mVoz").addEventListener("click", () => { fechar("telaMenu"); abrirVoz(); });
+$("abaEn").addEventListener("click", () => { idiomaVozEditando = "en"; desenharVozes(); });
+$("abaPt").addEventListener("click", () => { idiomaVozEditando = "pt"; desenharVozes(); });
+$("velocidade").addEventListener("input", (ev) => {
+  P.velocidade = parseFloat(ev.target.value);
+  $("valorVelocidade").textContent = P.velocidade.toFixed(2);
+});
+$("velocidade").addEventListener("change", () => { gravar(CHAVES.prefs, P); });
+$("btTestarVoz").addEventListener("click", () => {
+  const idioma = idiomaVozEditando || P.idiomaVoz;
+  const guarda = P.idiomaVoz;
+  P.idiomaVoz = idioma;
+  falarAgora(idioma === "pt" ? "sáid aut, 4, 2, 1, saque de Jeff, guêimi point"
+                             : "side out, 4, 2, 1, Jeff to serve, game point");
+  P.idiomaVoz = guarda;
+});
+
 $("mBackup").addEventListener("click", () => { fechar("telaMenu"); $("avisoBackup").textContent = ""; abrir("telaBackup"); });
 $("mManual").addEventListener("click", () => { fechar("telaMenu"); desenharManual(); abrir("telaManual"); });
 $("mIdiomaTela").addEventListener("click", () => {

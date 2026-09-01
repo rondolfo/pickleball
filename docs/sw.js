@@ -1,7 +1,7 @@
 // Cache para funcionar sem internet depois da primeira abertura.
 // A estrategia e rede primeiro: online voce sempre pega a versao nova,
 // offline cai para o que ja esta guardado.
-const VERSAO = "placar-v1";
+const VERSAO = "placar-v2";
 const ARQUIVOS = [
   "./", "./index.html", "./estilo.css", "./regras.js", "./app.js",
   "./manifest.webmanifest", "./icon-192.png", "./icon-512.png"
