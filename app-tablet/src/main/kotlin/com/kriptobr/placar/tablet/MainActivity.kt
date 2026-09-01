@@ -98,6 +98,7 @@ class MainActivity : ComponentActivity() {
     private var telaStatus by mutableStateOf(false)
     private var telaTeste by mutableStateOf(false)
     private var telaBackup by mutableStateOf(false)
+    private var telaManual by mutableStateOf(false)
     private var avisoBackup by mutableStateOf("")
     private var telaCorrecao by mutableStateOf(false)
     private var confirmandoNovoGame by mutableStateOf(false)
@@ -230,6 +231,7 @@ class MainActivity : ComponentActivity() {
                     },
                     onTeste = { menuAberto = false; telaTeste = true },
                     onBackup = { avisoBackup = ""; menuAberto = false; telaBackup = true },
+                    onManual = { menuAberto = false; telaManual = true },
                     onTrocarIdiomaVoz = { trocarIdiomaVoz() },
                     onTrocarIdiomaTela = { trocarIdiomaTela() },
                     onRepetir = { voz.repetir(); menuAberto = false },
@@ -398,6 +400,14 @@ class MainActivity : ComponentActivity() {
                     onExportar = { exportarBackup() },
                     onImportar = { seletorBackup.launch(arrayOf("*/*")) },
                     onFechar = { telaBackup = false; avisoBackup = "" }
+                )
+            }
+
+            if (telaManual) {
+                TelaManual(
+                    idiomaUi = idiomaUi,
+                    onTrocarIdioma = { trocarIdiomaTela() },
+                    onFechar = { telaManual = false }
                 )
             }
 

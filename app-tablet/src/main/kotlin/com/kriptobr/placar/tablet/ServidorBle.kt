@@ -65,7 +65,10 @@ class ServidorBle(
 
     @SuppressLint("MissingPermission")
     fun iniciar(): Boolean {
-        val adaptador = gerenciador?.adapter ?: return false
+        // guarda numa variavel local: checar gerenciador?.adapter nao prova
+        // ao compilador que o proprio gerenciador nao e nulo
+        val bluetooth = gerenciador ?: return false
+        val adaptador = bluetooth.adapter ?: return false
         if (!adaptador.isEnabled) {
             Log.w(TAG, "bluetooth desligado")
             return false
@@ -108,7 +111,7 @@ class ServidorBle(
         retorno = saida
 
         val aberto = runCatching {
-            gerenciador.openGattServer(contexto, retornoDoServidor)?.also {
+            bluetooth.openGattServer(contexto, retornoDoServidor)?.also {
                 it.addService(servico)
             }
         }.getOrNull()

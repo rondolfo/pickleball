@@ -133,7 +133,8 @@ object Textos {
             "email_sessao" to "Email today's summary",
             "jogos" to "games",
             "saldo" to "point diff",
-            "sem_jogos_hoje" to "No games played today."
+            "sem_jogos_hoje" to "No games played today.",
+            "manual" to "How to use"
         ),
         PT to mapOf(
             "esquerda" to "ESQUERDA",
@@ -257,7 +258,8 @@ object Textos {
             "email_sessao" to "Enviar o resumo de hoje",
             "jogos" to "jogos",
             "saldo" to "saldo",
-            "sem_jogos_hoje" to "Nenhum jogo hoje ainda."
+            "sem_jogos_hoje" to "Nenhum jogo hoje ainda.",
+            "manual" to "Como usar"
         )
     )
 

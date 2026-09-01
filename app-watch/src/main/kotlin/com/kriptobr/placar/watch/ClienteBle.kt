@@ -231,7 +231,6 @@ class ClienteBle(
             receber(String(valor))
         }
 
-        @Deprecated("mantido para versoes anteriores ao Android 13")
         @Suppress("DEPRECATION")
         override fun onCharacteristicChanged(
             alvo: BluetoothGatt,
