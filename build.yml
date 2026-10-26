@@ -1,0 +1,52 @@
+name: build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  apks:
+    name: Gerar APKs
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Baixar o codigo
+        uses: actions/checkout@v4
+
+      - name: Preparar o Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Preparar o Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Instalar componentes do SDK
+        run: |
+          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Preparar o Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+
+      - name: Compilar os dois aplicativos
+        run: gradle assembleDebug --no-daemon --stacktrace
+
+      - name: Publicar o APK do tablet
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk-tablet
+          path: app-tablet/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+
+      - name: Publicar o APK do relogio
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk-relogio
+          path: app-watch/build/outputs/apk/debug/*.apk
+          if-no-files-found: error

@@ -163,3 +163,69 @@ O e-mail agora pode sair uma vez so no fim da noite, com todos os resultados do 
 ## Sobre a chamada de troca de saque
 
 "Side out" e o termo oficial e significa que o saque mudou de dupla, nao que a bola saiu. Como isso confunde na quadra, o padrao passou a ser anunciar apenas quem assume o saque, que e inequivoco. Quem preferir o termo oficial pode ligar no menu.
+
+## Versao web, na pasta docs
+
+Aplicativo completo rodando no navegador, para quem nao tem Android. Funciona em iPad, iPhone, notebook e no proprio tablet.
+
+E independente do aplicativo Android: mesmas regras, dados proprios, guardados no navegador. Nao ha sincronizacao entre os dois.
+
+### O que tem
+
+Placar com numeros grandes, faixa de saque com o desenho da quadra, voz em ingles e portugues, cadastro de jogadores com foto pela camera, rodizio, substituicao, correcao manual, historico, ranking, resumo por e-mail, exportacao em CSV, backup em arquivo e manual embutido.
+
+### O que nao tem
+
+O controle pelo Galaxy Watch. Navegador nao pode funcionar como periferico Bluetooth, e no iOS nem existe Web Bluetooth. Nesta versao o comando e o toque na tela ou um controle Bluetooth pareado ao aparelho, que o sistema enxerga como teclado.
+
+### Como publicar
+
+1. Envie a pasta docs junto com o resto do projeto
+2. No GitHub, va em Settings, Pages
+3. Em Source escolha Deploy from a branch
+4. Selecione a branch main e a pasta /docs, e salve
+
+O endereco fica em https://SEU_USUARIO.github.io/pickleball/
+
+### Como usar num iPad
+
+Abra o endereco no Safari, toque no botao de compartilhar e escolha Adicionar a Tela de Inicio. Isso e importante por dois motivos: ele passa a abrir em tela cheia, sem barra do navegador, e o Safari deixa de apagar os dados por inatividade, o que acontece com sites comuns depois de algumas semanas.
+
+Depois de aberto uma vez, funciona sem internet.
+
+### Cuidados
+
+- A voz no iPhone e no iPad so comeca depois do primeiro toque na tela, por exigencia do sistema
+- Use o backup com frequencia. Os dados vivem no navegador daquele aparelho
+- O backup da versao web e um arquivo JSON, e nao e o mesmo formato do backup do aplicativo Android
+
+## Relatorio da temporada, na versao 1.0
+
+Engrenagem, Relatorio da temporada. O aplicativo monta um relatorio visual com todas as partidas salvas e abre na propria tela. O botao compartilhar entrega o arquivo HTML para WhatsApp, e-mail ou nuvem, e ele abre em qualquer navegador sem depender do aplicativo.
+
+O relatorio sai em ingles ou portugues, acompanhando o idioma da tela. Tem classificacao, saldo de pontos, confrontos diretos, duplas, partidas por noite, tabela completa e destaques. Os graficos sao SVG estatico, entao funcionam offline e no e-mail.
+
+### Quem entra na classificacao
+
+Um jogador precisa de 15 partidas para ser classificado. Abaixo disso aparece como visitante, com um ponto no lugar da posicao e o nome esmaecido.
+
+Sem esse corte, quem apareceu numa unica noite e ganhou tres jogos ficava na frente de quem joga toda semana, e a classificacao deixava de significar o que o grupo espera dela. No filtro de hoje o minimo cai para 2, porque ali o recorte e a propria noite.
+
+### Partida valida
+
+O relatorio e o ranking consideram apenas partidas que descrevem um jogo real: dois contra dois, ninguem repetido nos dois lados, e vencedor com 11 ou mais e dois de vantagem.
+
+Isso substituiu a marcacao `completa`, que nao servia como criterio. Ao comecar um game novo logo apos o anterior terminar, o aplicativo regravava o arquivo da partida encerrada por cima, com uma copia ainda sem fim nem duracao. Das 135 partidas do historico, apenas 18 continuavam marcadas como completas, e o ranking da tela estava contando so essas. As duas pontas foram corrigidas: a regravacao nao acontece mais, e a estatistica nao depende daquela marca.
+
+### Escalacao invalida
+
+A tela de montar duplas agora remove da lista quem ja esta em outro lugar da quadra. Era por ali que entravam as partidas com a mesma pessoa nos dois lados.
+
+## Acabamento visual da versao 1.0
+
+- Botoes de toda a interface ganharam moldura arredondada e fundo fraco na propria cor. Antes eram texto puro, sem indicacao de onde terminava a area de toque
+- O menu, que era uma coluna unica de dezessete itens, virou quatro colunas por assunto: Jogo, Pessoas, Dados e Ajustes. Idioma e side out mostram o valor atual a direita, em vez de esconde-lo dentro do nome
+- No placar, o lado de quem saca ganhou preenchimento fraco alem da moldura. A espessura da borda sozinha nao se le a dez metros
+- Ponto de jogo pinta esse lado de ambar em vez de verde. Como so a dupla que saca pode pontuar, o ponto de jogo e sempre dela. O rodape continua escrevendo ponto de jogo, entao a informacao nao depende da cor
+- As linhas do ranking viraram cartoes, que juntam o nome da esquerda com os numeros da direita. Em tela larga eles flutuavam soltos nas duas pontas
+- Cabecalho das telas com regra fina abaixo do titulo
