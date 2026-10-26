@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -40,7 +41,12 @@ fun TelaEstatisticas(
     val porId = jogadores.associateBy { it.id }
     val doDia = EstatisticasJogador.doDia(partidas)
     val recorte = if (soHoje) doDia else partidas
-    val resumos = EstatisticasJogador.ranking(recorte, jogadores)
+    // quem jogou pouco fica de fora da classificacao e aparece como visitante,
+    // senao algumas partidas numa unica noite passam na frente da temporada
+    val minimo = if (soHoje) EstatisticasJogador.MINIMO_REGULAR_DIA
+                 else EstatisticasJogador.MINIMO_REGULAR
+    val (regulares, convidados) = EstatisticasJogador.rankingDividido(recorte, jogadores, minimo)
+    val resumos = regulares
 
     Box(
         modifier = Modifier
@@ -77,21 +83,35 @@ fun TelaEstatisticas(
                 )
             }
 
+            // A posicao vem do indice dentro dos regulares. Buscar com indexOf
+            // dava -1 para visitante, que virava a posicao zero na tela.
+            val posicoes = resumos.withIndex().associate { (i, r) -> r.id to i + 1 }
+
             LazyColumn(modifier = Modifier.weight(1f)) {
-                items(resumos, key = { it.id }) { resumo ->
+                items(resumos + convidados, key = { it.id }) { resumo ->
                     val jogador = porId[resumo.id] ?: return@items
-                    val posicao = resumos.indexOf(resumo) + 1
+                    val visitante = resumo.partidas < minimo
+                    val posicao = posicoes[resumo.id]
+                    val podio = posicao != null && posicao <= 3
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 10.dp),
+                            .padding(vertical = 3.dp)
+                            // Cada linha num cartao proprio: junta o nome da
+                            // esquerda com os numeros da direita, que antes
+                            // flutuavam soltos nas duas pontas da tela.
+                            .background(
+                                if (podio) VERDE.copy(alpha = 0.07f) else Color(0xFF151513),
+                                RoundedCornerShape(12.dp)
+                            )
+                            .padding(horizontal = 14.dp, vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                "$posicao",
-                                color = if (posicao <= 3) VERDE else CINZA_TEXTO,
+                                posicao?.toString() ?: "\u00b7",
+                                color = if (podio) VERDE else CINZA_TEXTO,
                                 fontSize = 20.sp,
                                 fontFamily = FontFamily.Monospace,
                                 modifier = Modifier.width(38.dp)
@@ -99,7 +119,13 @@ fun TelaEstatisticas(
                             Avatar(jogador, 44.dp, versaoFotos)
                             Box(modifier = Modifier.width(14.dp))
                             Column {
-                                Text(jogador.nome, color = Color.White, fontSize = 17.sp)
+                                Text(
+                                    jogador.nome + if (visitante) {
+                                        "   " + Textos.get("visitantes", idiomaUi)
+                                    } else "",
+                                    color = if (visitante) CINZA_TEXTO else Color.White,
+                                    fontSize = 17.sp
+                                )
                                 val parceiro = resumo.parceiroMaisFrequente?.let { porId[it]?.curto }
                                 if (parceiro != null) {
                                     Text(

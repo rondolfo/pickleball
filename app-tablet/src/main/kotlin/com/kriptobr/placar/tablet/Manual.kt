@@ -88,7 +88,8 @@ object Manual {
             "After playing",
             listOf(
                 "Every finished game is saved by itself. A game abandoned halfway is kept as unfinished.",
-                "Gear, then Leaderboard, for standings by player, today or all time.",
+                "Gear, then Leaderboard, for standings by player, today or all time. A player needs 15 games to be ranked; below that they show as a guest, with a dot instead of a position.",
+                "Gear, then Season report, for the visual report: ranking, point differential, head to head, partnerships and every game night. Share sends the file to the group.",
                 "Email today's summary sends one message at the end of the night with every result and the standings.",
                 "Export to CSV opens the whole history in a spreadsheet."
             )
@@ -187,7 +188,8 @@ object Manual {
             "Depois de jogar",
             listOf(
                 "Toda partida encerrada e salva sozinha. Partida abandonada no meio fica marcada como incompleta.",
-                "Engrenagem e depois Ranking, para a classificacao por jogador, de hoje ou de sempre.",
+                "Engrenagem e depois Ranking, para a classificacao por jogador, de hoje ou de sempre. Para entrar na classificacao o jogador precisa de 15 partidas; abaixo disso aparece como visitante, com um ponto no lugar da posicao.",
+                "Engrenagem e depois Relatorio da temporada, para o relatorio visual: classificacao, saldo de pontos, confrontos diretos, duplas e todas as noites. Compartilhar envia o arquivo para o grupo.",
                 "Enviar o resumo de hoje manda uma mensagem so no fim da noite, com todos os resultados e o ranking.",
                 "Exportar em CSV abre o historico inteiro numa planilha."
             )

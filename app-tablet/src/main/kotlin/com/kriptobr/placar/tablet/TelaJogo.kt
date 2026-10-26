@@ -90,8 +90,17 @@ fun TelaNovoJogo(
     }
 
     escolhendo?.let { (lado, posicao) ->
+        // Quem ja esta escalado some da lista, senao a mesma pessoa acaba
+        // nos dois lados da rede ou duas vezes na mesma dupla.
+        val ocupados = (duplaEsquerda.ids + duplaDireita.ids).toSet()
+        val noSlot = if (lado == Lado.ESQUERDA) {
+            if (posicao == 0) duplaEsquerda.a else duplaEsquerda.b
+        } else {
+            if (posicao == 0) duplaDireita.a else duplaDireita.b
+        }
+
         SeletorDeJogador(
-            jogadores = jogadores,
+            jogadores = jogadores.filter { it.id == noSlot || !ocupados.contains(it.id) },
             titulo = Textos.get("escolher_jogador", idiomaUi),
             idiomaUi = idiomaUi,
             versaoFotos = versaoFotos,

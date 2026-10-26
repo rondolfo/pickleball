@@ -10,7 +10,12 @@ on:
 jobs:
   apks:
     name: Gerar APKs
-    runs-on: ubuntu-latest
+    # Fixo em 24.04 de proposito. Em 19/10/2026 o GitHub comecou a migrar
+    # ubuntu-latest para o Ubuntu 26, cuja imagem traz cmdline-tools mais
+    # novo. O setup-android@v3 nao reconhece essa versao, cai no aceite
+    # interativo de licenca e o job morre em 12 segundos, antes de compilar.
+    # 24.04 e exatamente a imagem do ultimo build que passou.
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Baixar o codigo

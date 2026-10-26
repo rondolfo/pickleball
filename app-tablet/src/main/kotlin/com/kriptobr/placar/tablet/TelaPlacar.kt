@@ -104,13 +104,25 @@ private fun LadoDoPlacar(
 ) {
     val sacando = estado.sacando == lado && !estado.encerrado
     val venceu = estado.vencedor == lado
-    val corBorda = if (venceu || sacando) VERDE else CINZA_BORDA
+    val destacado = sacando || venceu
+
+    // So a dupla que saca pode pontuar, entao ponto de jogo e sempre dela.
+    // Ambar em vez de verde avisa que este ponto encerra o game, sem exigir
+    // que alguem leia o placar pequeno do rodape.
+    val acento = if (sacando && estado.pontoDeJogo) AMBAR else VERDE
+    val corBorda = if (destacado) acento else CINZA_BORDA
 
     BoxWithConstraints(
         modifier = modifier
             .fillMaxHeight()
             .padding(8.dp)
-            .border(if (sacando || venceu) 5.dp else 2.dp, corBorda, RoundedCornerShape(14.dp))
+            // O preenchimento fraco e o que se le de longe. Antes a diferenca
+            // entre quem saca e quem recebe era so a espessura da moldura.
+            .background(
+                if (destacado) acento.copy(alpha = 0.10f) else Color(0xFF121210),
+                RoundedCornerShape(14.dp)
+            )
+            .border(if (destacado) 5.dp else 2.dp, corBorda, RoundedCornerShape(14.dp))
             .pointerInput(travado) {
                 detectTapGestures(
                     onDoubleTap = { if (travado) onDestravar() },
@@ -129,7 +141,7 @@ private fun LadoDoPlacar(
         ) {
             Text(
                 text = rotulo,
-                color = if (sacando) VERDE else CINZA_TEXTO,
+                color = if (sacando) acento else CINZA_TEXTO,
                 fontSize = tamanhoRotulo,
                 letterSpacing = 2.sp,
                 maxLines = 1
@@ -147,11 +159,8 @@ private fun LadoDoPlacar(
 }
 
 /**
- * Faixa de quem saca. E a informacao que mais gera duvida em quadra,
- * entao ganha altura propria e texto grande, em vez de virar legenda.
- */
-/**
- * Faixa de quem saca: nome grande, para ler de longe, ao lado do desenho
+ * Faixa de quem saca. E a informacao que mais gera duvida em quadra, entao
+ * ganha altura propria: nome grande, para ler de longe, ao lado do desenho
  * da quadra, que mostra exatamente onde cada um deve estar.
  */
 @Composable
@@ -196,7 +205,7 @@ private fun FaixaDeSaque(
                 ) {
                     Text(
                         text = nomeSacador.uppercase(),
-                        color = VERDE,
+                        color = if (estado.pontoDeJogo) AMBAR else VERDE,
                         fontSize = tamanho,
                         fontWeight = FontWeight.Medium,
                         letterSpacing = 2.sp,

@@ -134,7 +134,13 @@ object Textos {
             "jogos" to "games",
             "saldo" to "point diff",
             "sem_jogos_hoje" to "No games played today.",
-            "manual" to "How to use"
+            "manual" to "How to use",
+            "relatorio" to "Season report",
+            "g_jogo" to "Game", "g_pessoas" to "People",
+            "g_dados" to "Data", "g_ajustes" to "Settings",
+            "compartilhar" to "Share",
+            "regulares" to "Regulars",
+            "visitantes" to "Guests"
         ),
         PT to mapOf(
             "esquerda" to "ESQUERDA",
@@ -259,7 +265,13 @@ object Textos {
             "jogos" to "jogos",
             "saldo" to "saldo",
             "sem_jogos_hoje" to "Nenhum jogo hoje ainda.",
-            "manual" to "Como usar"
+            "manual" to "Como usar",
+            "relatorio" to "Relatorio da temporada",
+            "g_jogo" to "Jogo", "g_pessoas" to "Pessoas",
+            "g_dados" to "Dados", "g_ajustes" to "Ajustes",
+            "compartilhar" to "Compartilhar",
+            "regulares" to "Regulares",
+            "visitantes" to "Visitantes"
         )
     )
 

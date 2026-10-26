@@ -99,6 +99,8 @@ class MainActivity : ComponentActivity() {
     private var telaTeste by mutableStateOf(false)
     private var telaBackup by mutableStateOf(false)
     private var telaManual by mutableStateOf(false)
+    private var telaRelatorio by mutableStateOf(false)
+    private var arquivoRelatorio by mutableStateOf<java.io.File?>(null)
     private var avisoBackup by mutableStateOf("")
     private var telaCorrecao by mutableStateOf(false)
     private var confirmandoNovoGame by mutableStateOf(false)
@@ -216,6 +218,10 @@ class MainActivity : ComponentActivity() {
                         historico = repositorio.listarPartidas()
                         menuAberto = false
                         telaEstatisticas = true
+                    },
+                    onRelatorio = {
+                        menuAberto = false
+                        gerarRelatorio()
                     },
                     onCorrigir = { menuAberto = false; telaCorrecao = true },
                     onStatus = {
@@ -403,6 +409,17 @@ class MainActivity : ComponentActivity() {
                 )
             }
 
+            if (telaRelatorio) {
+                TelaRelatorio(
+                    arquivo = arquivoRelatorio,
+                    idiomaUi = idiomaUi,
+                    onCompartilhar = {
+                        arquivoRelatorio?.let { RelatorioHtml.compartilhar(this, it) }
+                    },
+                    onFechar = { telaRelatorio = false }
+                )
+            }
+
             if (telaManual) {
                 TelaManual(
                     idiomaUi = idiomaUi,
@@ -581,7 +598,10 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun novoGame(saqueInicial: Lado) {
-        val emAndamento = eventos.isNotEmpty() && partidaEncerrada == null
+        // Se o game ja terminou, encerrarPartida() gravou a versao completa.
+        // Regravar aqui sobrescreveria aquele arquivo com uma copia incompleta,
+        // porque os dois usam o mesmo id e o mesmo nome de arquivo.
+        val emAndamento = eventos.isNotEmpty() && !estadoAtual().encerrado
         if (emAndamento) {
             repositorio.salvarPartida(montarPartida(fim = null, completa = false))
         }
@@ -785,6 +805,18 @@ class MainActivity : ComponentActivity() {
     private fun enviarEmailSessao(partidasDoDia: List<Partida>) {
         if (partidasDoDia.isEmpty()) return
         ResumoEmail.abrirSessao(this, partidasDoDia, jogadores.toList(), idiomaUi)
+    }
+
+    /**
+     * Monta o relatorio da temporada e abre dentro do aplicativo.
+     * O arquivo fica na pasta de exportacao, pronto para compartilhar.
+     */
+    private fun gerarRelatorio() {
+        historico = repositorio.listarPartidas()
+        arquivoRelatorio = runCatching {
+            RelatorioHtml.gerar(this, historico, jogadores.toList(), idiomaUi)
+        }.getOrNull()
+        telaRelatorio = true
     }
 
     private fun exportarCsv() {

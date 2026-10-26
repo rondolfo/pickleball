@@ -34,6 +34,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.FileProvider
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.util.UUID
@@ -314,19 +315,29 @@ private fun OpcaoSexo(rotulo: String, ativo: Boolean, onClique: () -> Unit) {
 
 @Composable
 fun Cabecalho(titulo: String, idiomaUi: String, onFechar: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(bottom = 12.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(titulo, color = Color.White, fontSize = 24.sp, letterSpacing = 1.sp)
-        Text(
-            text = Textos.get("voltar", idiomaUi),
-            color = CINZA_TEXTO,
-            fontSize = 17.sp,
-            modifier = Modifier.clickable { onFechar() }.padding(10.dp)
+    Column(modifier = Modifier.fillMaxWidth().padding(bottom = 14.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                titulo.uppercase(),
+                color = Color.White,
+                fontSize = 23.sp,
+                fontWeight = FontWeight.Medium,
+                letterSpacing = 2.sp
+            )
+            Botao(Textos.get("voltar", idiomaUi), CINZA_TEXTO) { onFechar() }
+        }
+        // Uma regra fina separa o titulo do conteudo. Sem ela, cabecalho e
+        // primeira linha da lista se confundem na mesma massa de texto.
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 10.dp)
+                .height(1.dp)
+                .background(CINZA_BORDA)
         )
     }
 }
