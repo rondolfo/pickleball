@@ -28,7 +28,7 @@ jobs:
           java-version: '17'
 
       - name: Preparar o Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
 
       - name: Instalar componentes do SDK
         run: |
