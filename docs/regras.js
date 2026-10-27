@@ -77,6 +77,20 @@ function aplicar(estado, evento) {
   return evento.vencedor === estado.sacando ? pontuar(estado) : perderSaque(estado);
 }
 
+// Estado de uma correcao manual. O lado de cada jogador vem do placar: um
+// parceiro so troca de lado quando a propria dupla pontua sacando, entao quem
+// comecou na direita esta na direita sempre que o placar da dupla e par.
+// O que o placar nao diz e quem esta com a bola, e isso vem de fora.
+function estadoCorrigido(pontosEsquerda, pontosDireita, sacando, sacador, indiceSacador) {
+  return {
+    pontosEsquerda, pontosDireita, sacando, sacador,
+    encerrado: false, vencedor: null,
+    naDireitaEsquerda: pontosEsquerda % 2,
+    naDireitaDireita: pontosDireita % 2,
+    indiceSacador,
+  };
+}
+
 // O estado nunca e editado: e sempre recalculado a partir do log.
 function derivarDe(eventos, base) {
   return eventos.reduce((acc, ev) => aplicar(acc, ev), base);

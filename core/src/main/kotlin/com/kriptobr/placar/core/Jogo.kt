@@ -143,6 +143,50 @@ object Regras {
             )
         }
 
+    /**
+     * Estado de uma correcao manual do placar.
+     *
+     * Ninguem precisa dizer de que lado cada um esta. Um parceiro so troca de
+     * lado quando a propria dupla marca ponto sacando, entao quem comecou na
+     * direita esta na direita sempre que o placar da dupla e par. O que nao da
+     * para deduzir do placar e quem esta com a bola, e isso vem de fora.
+     *
+     * Antes a correcao guardava as posicoes de antes dela. Se a correcao mudava
+     * o placar de uma dupla ou a dupla que saca, essas posicoes deixavam de
+     * bater com o jogo, e o aplicativo passava a apontar o sacador errado.
+     */
+    fun estadoCorrigido(
+        pontosEsquerda: Int,
+        pontosDireita: Int,
+        sacando: Lado,
+        sacador: Int,
+        indiceSacador: Int
+    ): EstadoJogo = EstadoJogo(
+        pontosEsquerda = pontosEsquerda,
+        pontosDireita = pontosDireita,
+        sacando = sacando,
+        sacador = sacador,
+        naDireitaEsquerda = pontosEsquerda % 2,
+        naDireitaDireita = pontosDireita % 2,
+        indiceSacador = indiceSacador
+    )
+
+    /** Indice, 0 ou 1, de quem esta na quadra da direita na dupla, pelo placar. */
+    fun naDireitaPeloPlacar(pontos: Int): Int = pontos % 2
+
+    /**
+     * O mesmo estado visto com as duplas trocadas de ponta.
+     * Placar, saque e posicoes trocam juntos, como num espelho.
+     */
+    fun espelhar(e: EstadoJogo): EstadoJogo = e.copy(
+        pontosEsquerda = e.pontosDireita,
+        pontosDireita = e.pontosEsquerda,
+        sacando = e.sacando.oposto(),
+        vencedor = e.vencedor?.oposto(),
+        naDireitaEsquerda = e.naDireitaDireita,
+        naDireitaDireita = e.naDireitaEsquerda
+    )
+
     fun derivar(eventos: List<Evento>, primeiroSaque: Lado = Lado.ESQUERDA): EstadoJogo =
         derivarDe(eventos, estadoInicial(primeiroSaque))
 

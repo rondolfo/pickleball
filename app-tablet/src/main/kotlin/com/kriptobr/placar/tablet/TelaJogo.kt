@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kriptobr.placar.core.EstadoJogo
 import com.kriptobr.placar.core.Lado
+import com.kriptobr.placar.core.Regras
 
 /**
  * Tela unica de inicio de jogo: quem joga de cada lado e quem saca primeiro.
@@ -60,11 +61,13 @@ fun TelaNovoJogo(
             ) {
                 ColunaLado(
                     Textos.get("esquerda", idiomaUi), duplaEsquerda, jogadores,
-                    idiomaUi, versaoFotos
+                    idiomaUi, versaoFotos,
+                    onTrocar = { onMudar(Lado.ESQUERDA, duplaEsquerda.copy(a = duplaEsquerda.b, b = duplaEsquerda.a)) }
                 ) { posicao -> escolhendo = Lado.ESQUERDA to posicao }
                 ColunaLado(
                     Textos.get("direita", idiomaUi), duplaDireita, jogadores,
-                    idiomaUi, versaoFotos
+                    idiomaUi, versaoFotos,
+                    onTrocar = { onMudar(Lado.DIREITA, duplaDireita.copy(a = duplaDireita.b, b = duplaDireita.a)) }
                 ) { posicao -> escolhendo = Lado.DIREITA to posicao }
             }
 
@@ -75,6 +78,13 @@ fun TelaNovoJogo(
                 color = Color.White,
                 fontSize = 19.sp,
                 modifier = Modifier.fillMaxWidth(),
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
+            Text(
+                text = Textos.get("saca_quem_direita", idiomaUi),
+                color = CINZA_TEXTO,
+                fontSize = 14.sp,
+                modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 6.dp),
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center
             )
 
@@ -116,6 +126,11 @@ fun TelaNovoJogo(
     }
 }
 
+/**
+ * A vaga de cima e quem comeca na quadra da direita. O aplicativo descobre
+ * quem saca a partir disso, entao a tela diz com todas as letras, e o botao
+ * de trocar conserta sem precisar escolher os dois de novo.
+ */
 @Composable
 private fun ColunaLado(
     titulo: String,
@@ -123,15 +138,34 @@ private fun ColunaLado(
     jogadores: List<Jogador>,
     idiomaUi: String,
     versaoFotos: Int,
+    onTrocar: () -> Unit,
     onSlot: (Int) -> Unit
 ) {
     val porId = jogadores.associateBy { it.id }
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(titulo, color = VERDE, fontSize = 17.sp, letterSpacing = 2.sp)
-        Box(modifier = Modifier.height(14.dp))
+        Box(modifier = Modifier.height(12.dp))
+        Text(
+            Textos.get("comeca_direita", idiomaUi),
+            color = CINZA_TEXTO,
+            fontSize = 12.sp,
+            letterSpacing = 1.5.sp,
+            modifier = Modifier.width(320.dp).padding(start = 4.dp, bottom = 4.dp)
+        )
         SlotDeJogador(porId[dupla.a], idiomaUi, versaoFotos) { onSlot(0) }
         Box(modifier = Modifier.height(10.dp))
+        Text(
+            Textos.get("comeca_esquerda", idiomaUi),
+            color = CINZA_TEXTO,
+            fontSize = 12.sp,
+            letterSpacing = 1.5.sp,
+            modifier = Modifier.width(320.dp).padding(start = 4.dp, bottom = 4.dp)
+        )
         SlotDeJogador(porId[dupla.b], idiomaUi, versaoFotos) { onSlot(1) }
+        if (dupla.a != null && dupla.b != null) {
+            Box(modifier = Modifier.height(6.dp))
+            Botao(Textos.get("trocar_posicao", idiomaUi), CINZA_TEXTO) { onTrocar() }
+        }
     }
 }
 
@@ -300,6 +334,9 @@ fun TelaSubstituicao(
 @Composable
 fun TelaCorrecao(
     estadoAtual: EstadoJogo,
+    duplaEsquerda: Dupla,
+    duplaDireita: Dupla,
+    jogadores: List<Jogador>,
     idiomaUi: String,
     onAplicar: (EstadoJogo) -> Unit,
     onFechar: () -> Unit
@@ -308,6 +345,20 @@ fun TelaCorrecao(
     var direita by remember { mutableStateOf(estadoAtual.pontosDireita) }
     var sacando by remember { mutableStateOf(estadoAtual.sacando) }
     var sacador by remember { mutableStateOf(estadoAtual.sacador) }
+    // Quem esta com a bola e a unica coisa que o placar nao diz sozinho.
+    // Ao trocar a dupla que saca, o palpite inicial e quem esta na direita.
+    var indice by remember { mutableStateOf(estadoAtual.indiceSacador) }
+    val porId = jogadores.associateBy { it.id }
+    val duplaQueSaca = if (sacando == Lado.ESQUERDA) duplaEsquerda else duplaDireita
+    fun nomeDaVaga(i: Int): String {
+        val id = if (i == 0) duplaQueSaca.a else duplaQueSaca.b
+        return porId[id]?.curto ?: Textos.get(if (i == 0) "vaga_a" else "vaga_b", idiomaUi)
+    }
+    fun mudarDupla(nova: Lado) {
+        if (nova == sacando) return
+        sacando = nova
+        indice = Regras.naDireitaPeloPlacar(if (nova == Lado.ESQUERDA) esquerda else direita)
+    }
 
     Painel {
         Text(
@@ -332,11 +383,21 @@ fun TelaCorrecao(
             Botao(
                 Textos.get("esquerda", idiomaUi),
                 if (sacando == Lado.ESQUERDA) VERDE else CINZA_TEXTO
-            ) { sacando = Lado.ESQUERDA }
+            ) { mudarDupla(Lado.ESQUERDA) }
             Botao(
                 Textos.get("direita", idiomaUi),
                 if (sacando == Lado.DIREITA) VERDE else CINZA_TEXTO
-            ) { sacando = Lado.DIREITA }
+            ) { mudarDupla(Lado.DIREITA) }
+        }
+
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                Textos.get("com_a_bola", idiomaUi),
+                color = CINZA_TEXTO,
+                fontSize = 15.sp
+            )
+            Botao(nomeDaVaga(0), if (indice == 0) VERDE else CINZA_TEXTO) { indice = 0 }
+            Botao(nomeDaVaga(1), if (indice == 1) VERDE else CINZA_TEXTO) { indice = 1 }
         }
 
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -361,14 +422,7 @@ fun TelaCorrecao(
         Row {
             Botao(Textos.get("cancelar", idiomaUi), CINZA_TEXTO) { onFechar() }
             Botao(Textos.get("aplicar", idiomaUi), VERDE) {
-                onAplicar(
-                    EstadoJogo(
-                        pontosEsquerda = esquerda,
-                        pontosDireita = direita,
-                        sacando = sacando,
-                        sacador = sacador
-                    )
-                )
+                onAplicar(Regras.estadoCorrigido(esquerda, direita, sacando, sacador, indice))
             }
         }
     }

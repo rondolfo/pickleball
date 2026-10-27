@@ -39,7 +39,10 @@ const T = {
     pontos_esq:"Left points", pontos_dir:"Right points",
     sacando_agora:"Serving", numero_sacador:"Server number", aplicar:"Apply",
     voz:"Voice", velocidade:"Speed", testar:"Test", voz_padrao:"System default",
-    sugerida:"suggested", sem_vozes:"No voice installed for this language on this device."
+    sugerida:"suggested", sem_vozes:"No voice installed for this language on this device.",
+    com_a_bola:"Has the ball", vaga_a:"Started right", vaga_b:"Started left",
+    comeca_direita:"STARTS ON THE RIGHT", comeca_esquerda:"STARTS ON THE LEFT",
+    trocar_posicao:"Swap positions", saca_quem_direita:"Whoever starts on the right serves first"
   },
   pt: {
     esquerda:"ESQUERDA", direita:"DIREITA", sacador:"SACADOR",
@@ -78,7 +81,10 @@ const T = {
     pontos_esq:"Pontos da esquerda", pontos_dir:"Pontos da direita",
     sacando_agora:"Sacando", numero_sacador:"Numero do sacador", aplicar:"Aplicar",
     voz:"Voz", velocidade:"Velocidade", testar:"Testar", voz_padrao:"Padrao do sistema",
-    sugerida:"sugerida", sem_vozes:"Nenhuma voz deste idioma instalada neste aparelho."
+    sugerida:"sugerida", sem_vozes:"Nenhuma voz deste idioma instalada neste aparelho.",
+    com_a_bola:"Com a bola", vaga_a:"Comecou na direita", vaga_b:"Comecou na esquerda",
+    comeca_direita:"COMECA NA DIREITA", comeca_esquerda:"COMECA NA ESQUERDA",
+    trocar_posicao:"Trocar posicoes", saca_quem_direita:"Saca primeiro quem comeca na direita"
   }
 };
 const t = (k) => (T[P.idiomaUi] && T[P.idiomaUi][k]) || T.en[k] || k;
@@ -207,16 +213,35 @@ if (window.speechSynthesis) {
 // Em portugues sao escritos foneticamente para o motor nao soletrar.
 const termo = (k) => {
   if (P.idiomaVoz === "pt") {
-    return { side_out:"sáid aut", game_point:"guêimi point", game:"guêimi" }[k] || k;
+    return { side_out:"sáid aut", game_point:"guêimi point", game:"guêimi", correction:"correção" }[k] || k;
   }
-  return { side_out:"side out", game_point:"game point", game:"game" }[k] || k;
+  return { side_out:"side out", game_point:"game point", game:"game", correction:"correction" }[k] || k;
 };
+
+// "Mike and Sarah" para a voz: o "&" da tela vira palavra no idioma da voz.
+const nomesFalados = (lado) => (lado === ESQ ? atual.duplaEsq : atual.duplaDir)
+  .map(curto).filter(Boolean).join(P.idiomaVoz === "pt" ? " e " : " and ");
+const chamadaFalada = (e) => `${pontosSacador(e)}, ${pontosRecebedor(e)}, ${e.sacador}`;
+const anuncioDeSacador = (nome) => (P.idiomaVoz === "pt" ? `saque de ${nome}` : `${nome} to serve`);
+
+// A fala sai com atraso. vozPendente volta a null quando ela sai, e e assim
+// que o desfazer sabe se o placar errado chegou a ser falado.
+function agendarFala(texto) {
+  ultimaFala = texto;
+  clearTimeout(vozPendente);
+  vozPendente = setTimeout(() => { vozPendente = null; falarAgora(texto); }, 800);
+}
 
 function anunciar(anterior, novo) {
   const partes = [];
   if (novo.encerrado) {
-    partes.push(termo("game"));
-    partes.push(`${pontosSacador(novo)}, ${pontosRecebedor(novo)}, ${novo.sacador}`);
+    // "Game. Mike and Sarah win, 11 to 7", com o placar na ordem de quem venceu
+    const v = novo.vencedor || novo.sacando;
+    const deles = pontosDe(novo, v), outros = pontosDe(novo, oposto(v));
+    const nomes = nomesFalados(v);
+    partes.push(P.idiomaVoz === "pt"
+      ? (nomes ? `${termo("game")}. Vitória de ${nomes}, ${deles} a ${outros}` : `${termo("game")}. ${deles} a ${outros}`)
+      : (nomes ? `${termo("game")}. ${nomes} win, ${deles} to ${outros}` : `${termo("game")}. ${deles} to ${outros}`));
   } else {
     if (novo.sacando !== anterior.sacando && P.sideOut) partes.push(termo("side_out"));
     partes.push(`${pontosSacador(novo)}, ${pontosRecebedor(novo)}, ${novo.sacador}`);
@@ -228,11 +253,13 @@ function anunciar(anterior, novo) {
     }
     if (pontoDeJogo(novo)) partes.push(termo("game_point"));
   }
-  const texto = partes.join(", ");
-  ultimaFala = texto;
-  clearTimeout(vozPendente);
   // atraso curto: se o ponto for desfeito, o placar errado nunca e falado
-  vozPendente = setTimeout(() => falarAgora(texto), 800);
+  agendarFala(partes.join(", "));
+}
+
+// Correcao manual ou troca de parceiros: fala o placar e quem saca.
+function anunciarCorrecao(e) {
+  agendarFala([termo("correction"), chamadaFalada(e), anuncioDeSacador(nomeDoSacador(e))].join(", "));
 }
 
 // ---------- desenho da tela ----------
@@ -240,28 +267,7 @@ const $ = (id) => document.getElementById(id);
 
 function desenhar() {
   const e = estado();
-
-  $("nomeEsq").textContent = nomeDoLado(ESQ);
-  $("nomeDir").textContent = nomeDoLado(DIR);
-  $("ptsEsq").textContent = e.pontosEsquerda;
-  $("ptsDir").textContent = e.pontosDireita;
-
-  $("ladoEsq").className = "lado" + (e.sacando === ESQ && !e.encerrado ? " saca" : "") +
-    (e.vencedor === ESQ ? " venceu" : "");
-  $("ladoDir").className = "lado" + (e.sacando === DIR && !e.encerrado ? " saca" : "") +
-    (e.vencedor === DIR ? " venceu" : "");
-
-  if (e.encerrado) {
-    $("sacadorNome").textContent = t("fim_game");
-    $("sacadorDetalhe").textContent = "";
-  } else {
-    $("sacadorNome").textContent = nomeDoSacador(e).toUpperCase();
-    $("sacadorDetalhe").textContent =
-      t(ladoDoSaque(e) === "direita" ? "saque_direita" : "saque_esquerda") +
-      "  .  " + t("sacador") + " " + e.sacador;
-  }
-
-  desenharQuadra(e);
+  desenharPalco(e);
 
   const chamadaTexto = `${pontosSacador(e)} . ${pontosRecebedor(e)} . ${e.sacador}`;
   $("chamada").textContent = pontoDeJogo(e)
@@ -275,33 +281,234 @@ function desenhar() {
   document.body.classList.toggle("travado", P.travado);
 }
 
-// Cada dupla encara a rede em sentido contrario, entao a quadra da direita
-// de cada uma fica em pontas opostas. Por isso sacador e recebedor caem na diagonal.
-function desenharQuadra(e) {
-  const nomeEm = (dupla, indice, alt) => curto(dupla[indice]) || alt;
-  const dEsq = e.naDireitaEsquerda, dDir = e.naDireitaDireita;
+// ---------- palco: a quadra inteira na tela ----------
+// Mesma geometria do aplicativo Android e do prototipo Placar na Quadra.
+// A largura da grade e fixa. A altura acompanha a tela: no iPad, que e mais
+// quadrado que um tablet Android, o palco cresce para baixo em vez de deixar
+// faixas pretas, e as linhas dos jogadores se espalham na mesma proporcao.
+const PALCO_L = 1280, PALCO_A_BASE = 754;
+let PALCO_A = PALCO_A_BASE;
+const linhaY = (cima) => PALCO_A * (cima ? 205 : 535) / PALCO_A_BASE;
+const TAM = { sacador: 220, recebedor: 168, outro: 124 };
+const COL_X = { [ESQ]: 146, [DIR]: 1134 };
+const NUM_X = { [ESQ]: 452, [DIR]: 828 };
+const NUM_L = 330;
+const PAINEL_X = { [ESQ]: 8, [DIR]: 648 };
 
-  const alvo = {
-    qEsqDir: nomeEm(atual.duplaEsq, dEsq, "1"),
-    qEsqEsq: nomeEm(atual.duplaEsq, 1 - dEsq, "2"),
-    qDirDir: nomeEm(atual.duplaDir, dDir, "1"),
-    qDirEsq: nomeEm(atual.duplaDir, 1 - dDir, "2")
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c]));
+const duplaDoLado = (lado) => (lado === ESQ ? atual.duplaEsq : atual.duplaDir);
+
+// Cada dupla encara a rede em sentido contrario: a quadra da direita fica
+// embaixo para a dupla da esquerda e em cima para a da direita. E isso que
+// poe sacador e recebedor na diagonal.
+function montarQuadra(e) {
+  const vagasDe = (lado) => {
+    const nd = naDireitaDe(e, lado);
+    return lado === ESQ
+      ? [{ lado, cima: true, indice: 1 - nd }, { lado, cima: false, indice: nd }]
+      : [{ lado, cima: true, indice: nd }, { lado, cima: false, indice: 1 - nd }];
   };
+  const vagas = vagasDe(ESQ).concat(vagasDe(DIR));
+  vagas.forEach((v) => { v.x = COL_X[v.lado]; v.y = linhaY(v.cima); });
+  if (e.encerrado) return { vagas, sacador: null, recebedor: null };
+  const sacador = vagas.find((v) => v.lado === e.sacando && v.indice === e.indiceSacador);
+  const daDireita = e.indiceSacador === naDireitaDe(e, e.sacando);
+  const outro = oposto(e.sacando);
+  const idxRec = daDireita ? naDireitaDe(e, outro) : 1 - naDireitaDe(e, outro);
+  const recebedor = vagas.find((v) => v.lado === outro && v.indice === idxRec);
+  return { vagas, sacador, recebedor };
+}
 
-  const naDireitaPropria = e.indiceSacador === naDireitaDe(e, e.sacando);
-  const quemSaca = e.sacando === ESQ
-    ? (naDireitaPropria ? "qEsqDir" : "qEsqEsq")
-    : (naDireitaPropria ? "qDirDir" : "qDirEsq");
-  const diagonal = { qEsqDir:"qDirDir", qEsqEsq:"qDirEsq", qDirDir:"qEsqDir", qDirEsq:"qEsqEsq" };
-  const quemRecebe = diagonal[quemSaca];
+function diametroDe(v, q, e) {
+  if (v === q.sacador) return TAM.sacador;
+  if (v === q.recebedor) return TAM.recebedor;
+  if (e.encerrado && e.vencedor === v.lado) return TAM.recebedor;
+  return TAM.outro;
+}
 
-  for (const id of ["qEsqEsq","qEsqDir","qDirDir","qDirEsq"]) {
-    const el = $(id);
-    el.textContent = alvo[id];
-    el.className = "quadrante" +
-      (!e.encerrado && id === quemSaca ? " saca" : "") +
-      (!e.encerrado && id === quemRecebe ? " recebe" : "");
+// Sem o verde de quem saca, sem o ambar do ponto de jogo e sem verde oliva:
+// um circulo dessas cores sumia dentro do proprio anel de destaque.
+function corDe(j) {
+  const cores = ["#6BA6D6","#D07A9E","#9B8ADB","#4FB3A5","#D4694A","#7F8FA6","#A97C5B","#C8B68E"];
+  let soma = 0; for (const c of j.id) soma = (soma * 31 + c.charCodeAt(0)) % 9973;
+  return cores[soma % cores.length];
+}
+
+function avatarPalco(j, d, extra) {
+  if (!j) return `<div style="width:${d}px;height:${d}px;border-radius:50%;background:#2A2A27;${extra}"></div>`;
+  const iniciais = j.nome.trim().split(" ").filter(Boolean).slice(0, 2).map((p) => p[0].toUpperCase()).join("") || "?";
+  const fundo = j.foto ? `background:${corDe(j)} url(${j.foto}) center/cover no-repeat;` : `background:${corDe(j)};`;
+  const letras = j.foto ? "" : `<span style="font:700 ${Math.round(d * 0.36)}px/1 var(--condensada);color:#14140F">${esc(iniciais)}</span>`;
+  return `<div style="width:${d}px;height:${d}px;border-radius:50%;${fundo}display:flex;align-items:center;justify-content:center;${extra}">${letras}</div>`;
+}
+
+const pontoDaBola = (s) => {
+  const r = TAM.sacador / 2;
+  return { x: s.lado === ESQ ? s.x + r * 0.72 : s.x - r * 0.72, y: s.y - r * 0.78 };
+};
+const naCurva = (a, b, t) => {
+  const c = { x: (a.x + b.x) / 2, y: Math.min(a.y, b.y) - 150 }, u = 1 - t;
+  return { x: u * u * a.x + 2 * u * t * c.x + t * t * b.x, y: u * u * a.y + 2 * u * t * c.y + t * t * b.y };
+};
+
+let chaveDesenhada = null, animacaoBola = 0;
+
+function desenharPalco(e) {
+  const q = montarQuadra(e);
+  const gp = pontoDeJogo(e);
+  const acento = gp ? "var(--ambar)" : "var(--verde)";
+  let html = "";
+
+  for (const lado of [ESQ, DIR]) {
+    const x = PAINEL_X[lado];
+    const sacando = e.sacando === lado && !e.encerrado;
+    const venceu = e.vencedor === lado;
+    const destacado = sacando || venceu;
+    const ac = sacando ? acento : "var(--verde)";
+    const fundo = destacado ? `color-mix(in srgb, ${ac} 11%, transparent)` : "rgba(255,255,255,.045)";
+    const borda = destacado ? `6px solid ${ac}` : "2px solid var(--borda)";
+    html += `<div style="position:absolute;left:${x}px;top:8px;width:624px;height:${PALCO_A - 16}px;box-sizing:border-box;border-radius:16px;background:${fundo};border:${borda}"></div>`;
+    html += `<div class="numeroPalco" style="position:absolute;left:${NUM_X[lado] - NUM_L / 2}px;width:${NUM_L}px;top:${PALCO_A * 370 / PALCO_A_BASE - 220}px;height:440px;display:flex;align-items:center;justify-content:center;font:700 372px/1 var(--condensada);letter-spacing:-6px;color:${destacado ? "#fff" : "var(--apagado)"};white-space:nowrap">${pontosDe(e, lado)}</div>`;
+    const rotulo = venceu ? "GAME" : (sacando && gp ? "GAME POINT" : "");
+    if (rotulo) html += `<div style="position:absolute;left:${x + 20}px;width:584px;top:30px;text-align:center;font:700 50px/1 var(--condensada);letter-spacing:5px;color:${venceu ? "var(--verde)" : "var(--ambar)"}">${rotulo}</div>`;
   }
+
+  for (const v of q.vagas) {
+    const j = acharJogador(duplaDoLado(v.lado)[v.indice]);
+    const ehSacador = v === q.sacador, ehRecebedor = v === q.recebedor;
+    const venceu = e.encerrado && e.vencedor === v.lado;
+    const d = diametroDe(v, q, e);
+    let extra;
+    // o respiro preto de 4 px garante o anel visivel sobre qualquer foto
+    if (ehSacador) extra = `box-shadow:0 0 0 4px #000, 0 0 0 12px ${acento}, 0 0 46px 16px color-mix(in srgb, ${acento} 45%, transparent);`;
+    else if (ehRecebedor) extra = "box-shadow:0 0 0 4px #000, 0 0 0 9px #fff;";
+    else if (venceu) extra = "box-shadow:0 0 0 4px #000, 0 0 0 9px var(--verde);";
+    else extra = "opacity:.42;";
+    html += `<div style="position:absolute;left:${v.x - d / 2}px;top:${v.y - d / 2}px">${avatarPalco(j, d, extra)}</div>`;
+    if (ehSacador) {
+      const bx = v.lado === ESQ ? v.x + d / 2 - 54 : v.x - d / 2 - 38;
+      html += `<div style="position:absolute;left:${bx}px;top:${v.y + d / 2 - 82}px;width:92px;height:92px;border-radius:50%;background:#000;box-shadow:0 0 0 6px ${acento};display:flex;align-items:center;justify-content:center;font:700 66px/1 var(--condensada);color:${acento}">${e.sacador}</div>`;
+    }
+    if (j) {
+      const fonte = ehSacador ? "700 46px" : (ehRecebedor || venceu) ? "700 32px" : "500 24px";
+      const cor = ehSacador ? acento : (ehRecebedor || venceu) ? "#fff" : "var(--cinza)";
+      html += `<div style="position:absolute;left:${v.x - 150}px;width:300px;top:${v.y + d / 2 + (ehSacador ? 24 : 16)}px;text-align:center;font:${fonte}/1 var(--condensada);letter-spacing:2px;color:${cor};white-space:nowrap;overflow:hidden">${esc(curto(j.id).toUpperCase())}</div>`;
+    }
+  }
+  $("camada").innerHTML = html;
+  ajustarNumeros();
+
+  // linha pontilhada da diagonal do saque
+  const raia = $("raia");
+  raia.innerHTML = "";
+  if (q.sacador && q.recebedor) {
+    const a = pontoDaBola(q.sacador), b = q.recebedor;
+    const mx = (a.x + b.x) / 2, my = Math.min(a.y, b.y) - 150;
+    raia.innerHTML = `<path d="M ${a.x} ${a.y} Q ${mx} ${my} ${b.x} ${b.y}" fill="none" stroke="${gp ? "#EF9F27" : "#97C459"}" stroke-opacity=".38" stroke-width="12" stroke-linecap="round" stroke-dasharray="2 30"/>`;
+  }
+
+  // a bola anima quando a situacao do saque muda; nos outros redesenhos fica parada
+  const chave = JSON.stringify([e, atual.duplaEsq, atual.duplaDir]);
+  const animar = chave !== chaveDesenhada;
+  chaveDesenhada = chave;
+  if (animar) sacar(q); else bolaParada(q, false);
+}
+
+// Um digito usa o tamanho cheio; dois encolhem so o necessario, medindo com
+// a fonte que o aparelho realmente tem.
+function ajustarNumeros() {
+  document.querySelectorAll("#camada .numeroPalco").forEach((el) => {
+    let tamanho = 372;
+    el.style.fontSize = tamanho + "px";
+    while (el.scrollWidth > el.clientWidth && tamanho > 200) { tamanho -= 8; el.style.fontSize = tamanho + "px"; }
+  });
+}
+
+function bolaHtml(d) {
+  return `<svg width="${d}" height="${d}" viewBox="0 0 60 60" style="display:block;filter:drop-shadow(0 6px 10px rgba(0,0,0,.6))">
+    <circle cx="30" cy="30" r="28" fill="#E4EF4C"/>
+    <g fill="#B9C234"><circle cx="30" cy="12" r="3.6"/><circle cx="30" cy="48" r="3.6"/><circle cx="12" cy="30" r="3.6"/><circle cx="48" cy="30" r="3.6"/><circle cx="30" cy="30" r="3.6"/><circle cx="18" cy="18" r="3"/><circle cx="42" cy="18" r="3"/><circle cx="18" cy="42" r="3"/><circle cx="42" cy="42" r="3"/></g>
+  </svg>`;
+}
+
+const semMovimento = () => window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+function bolaParada(q, comPulo) {
+  const efeitos = $("efeitos");
+  efeitos.innerHTML = "";
+  if (!q.sacador) return;
+  const p = pontoDaBola(q.sacador);
+  const el = document.createElement("div");
+  el.style.cssText = `position:absolute;left:${p.x - 32}px;top:${p.y - 32}px`;
+  el.innerHTML = bolaHtml(64);
+  efeitos.appendChild(el);
+  if (comPulo && !semMovimento() && el.animate) {
+    el.animate([{ transform: "scale(0)" }, { transform: "scale(1.18)" }, { transform: "scale(1)" }], { duration: 360, easing: "ease-out" });
+  }
+}
+
+// A bola aparece com o sacador, voa ate quem recebe e volta para o sacador.
+function sacar(q) {
+  cancelAnimationFrame(animacaoBola);
+  if (!q.sacador || !q.recebedor || semMovimento()) { bolaParada(q, false); return; }
+  const efeitos = $("efeitos");
+  efeitos.innerHTML = "";
+  const a = pontoDaBola(q.sacador), b = { x: q.recebedor.x, y: q.recebedor.y };
+  const bola = document.createElement("div");
+  bola.style.cssText = "position:absolute;left:0;top:0;will-change:transform";
+  bola.innerHTML = bolaHtml(64);
+  efeitos.appendChild(bola);
+  const espera = 420, voo = 1000, t0 = performance.now();
+  let ultimoRastro = -1;
+  const passo = (agora) => {
+    const dt = agora - t0;
+    if (dt < espera) {
+      const s = Math.min(1, dt / 260);
+      bola.style.transform = `translate(${a.x - 32}px, ${a.y - 32}px) scale(${0.2 + 0.8 * s})`;
+    } else if (dt < espera + voo) {
+      const u = (dt - espera) / voo;
+      const tt = u < 0.5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2;
+      const p = naCurva(a, b, tt);
+      bola.style.transform = `translate(${p.x - 32}px, ${p.y - 32}px) scale(${1 + 0.75 * Math.sin(Math.PI * tt)})`;
+      const marco = Math.floor(tt * 9);
+      if (marco !== ultimoRastro && marco > 0 && marco < 9 && bola.animate) {
+        ultimoRastro = marco;
+        const ponto = document.createElement("div");
+        ponto.style.cssText = `position:absolute;left:${p.x - 14}px;top:${p.y - 14}px;width:28px;height:28px;border-radius:50%;background:#E4EF4C`;
+        efeitos.insertBefore(ponto, bola);
+        ponto.animate([{ opacity: 0.55, transform: "scale(1)" }, { opacity: 0, transform: "scale(.4)" }], { duration: 900, fill: "forwards" });
+      }
+    } else { bolaParada(q, true); return; }
+    animacaoBola = requestAnimationFrame(passo);
+  };
+  animacaoBola = requestAnimationFrame(passo);
+}
+
+function escalarPalco() {
+  const m = $("palcoMoldura");
+  if (!m.clientWidth || !m.clientHeight) return;
+  let s = m.clientWidth / PALCO_L;
+  let altura = m.clientHeight / s;
+  if (altura < PALCO_A_BASE) { altura = PALCO_A_BASE; s = m.clientHeight / PALCO_A_BASE; }
+  altura = Math.min(altura, 1000);
+  if (Math.round(altura) !== Math.round(PALCO_A)) {
+    PALCO_A = altura;
+    $("palco").style.height = PALCO_A + "px";
+    const raia = $("raia");
+    raia.setAttribute("height", PALCO_A);
+    raia.setAttribute("viewBox", `0 0 ${PALCO_L} ${PALCO_A}`);
+    desenhar();
+  }
+  const ox = (m.clientWidth - PALCO_L * s) / 2, oy = (m.clientHeight - PALCO_A * s) / 2;
+  $("palco").style.transform = `translate(${ox}px, ${oy}px) scale(${s})`;
+}
+if (window.ResizeObserver) new ResizeObserver(escalarPalco).observe($("palcoMoldura"));
+window.addEventListener("resize", escalarPalco);
+
+// Converte um toque na tela para a grade do palco.
+function naGrade(ev) {
+  const r = $("palco").getBoundingClientRect();
+  return { x: (ev.clientX - r.left) / r.width * PALCO_L, y: (ev.clientY - r.top) / r.height * PALCO_A };
 }
 
 // ---------- acoes do jogo ----------
@@ -322,11 +529,37 @@ function marcarPonto(lado) {
   if (novo.encerrado) encerrarPartida();
 }
 
+// Desfazer fala o placar que voltou a valer, a nao ser que o ponto desfeito
+// ainda nem tivesse sido falado.
 function desfazer() {
   if (!atual.eventos.length) return;
+  const antes = estado();
+  const aindaNaoFalou = vozPendente !== null;
   clearTimeout(vozPendente);
+  vozPendente = null;
   atual.eventos.pop();
   atual.completa = false;
+  const depois = estado();
+  if (!aindaNaoFalou) {
+    const partes = [termo("correction"), chamadaFalada(depois)];
+    if (depois.sacando !== antes.sacando || depois.indiceSacador !== antes.indiceSacador) {
+      partes.push(anuncioDeSacador(nomeDoSacador(depois)));
+    }
+    agendarFala(partes.join(", "));
+  }
+  salvarAtual();
+  desenhar();
+}
+
+// O aplicativo sabe quem saca porque sabe quem comecou na direita. Se a dupla
+// se posicionou ao contrario, trocar os dois conserta posicao e sacador juntos.
+function trocarParceiros(lado) {
+  const antes = estado();
+  const nomeAntes = nomeDoSacador(antes);
+  const d = duplaDoLado(lado);
+  const guarda = d[0]; d[0] = d[1]; d[1] = guarda;
+  atual.escalacoes.push({ ts: Date.now(), esq: atual.duplaEsq.slice(), dir: atual.duplaDir.slice() });
+  if (nomeDoSacador(antes) !== nomeAntes) anunciarCorrecao(antes);
   salvarAtual();
   desenhar();
 }
@@ -380,13 +613,11 @@ document.querySelectorAll("[data-fechar]").forEach((b) =>
   b.addEventListener("click", () => fechar(b.dataset.fechar)));
 
 function avatarHtml(j, tamanho) {
-  const cores = ["#97C459","#EF9F27","#6BA6D6","#D07A9E","#9B8ADB","#4FB3A5","#D4694A","#8FA33E"];
   const iniciais = j.nome.trim().split(" ").filter(Boolean).slice(0,2)
     .map((p) => p[0].toUpperCase()).join("") || "?";
-  let soma = 0; for (const c of j.id) soma = (soma * 31 + c.charCodeAt(0)) % 9973;
   const estilo = j.foto
     ? `background-image:url(${j.foto})`
-    : `background:${cores[soma % cores.length]}`;
+    : `background:${corDe(j)}`;
   const dim = tamanho ? `width:${tamanho}px;height:${tamanho}px;font-size:${Math.round(tamanho*0.36)}px;` : "";
   return `<div class="av" style="${dim}${estilo}">${j.foto ? "" : iniciais}</div>`;
 }
@@ -404,7 +635,7 @@ function traduzirTelas() {
     btLimparSlot:"limpar", btAplicarCorrecao:"aplicar", btHoje:"hoje", btSempre:"sempre",
     btEmailSessao:"email_sessao", btCsv:"exportar", btEmailPartida:"enviar_email",
     btNovoAposGame:"novo_game", tImportarBackup:"backup", tAvisoCorrecao:"aviso_correcao",
-    tAvisoBackup:"aviso_backup"
+    tAvisoBackup:"aviso_backup", tSacaQuemDireita:"saca_quem_direita"
   };
   for (const [id, chave] of Object.entries(mapa)) { const el = $(id); if (el) el.textContent = t(chave); }
   $("mSideOut").textContent = t("side_out") + "   " + (P.sideOut ? "ON" : "OFF");
@@ -514,15 +745,19 @@ function escolherSlot(j) {
 }
 $("btLimparSlot").addEventListener("click", () => escolherSlot(null));
 
-function slotsHtml(idContainer, duplaEsq, duplaDir) {
+// A vaga de cima e quem comeca na quadra da direita: e dai que o aplicativo
+// tira quem saca. Na tela de novo jogo, o botao troca os dois de lugar.
+function slotsHtml(idContainer, duplaEsq, duplaDir, comTroca) {
   const bloco = (titulo, dupla, lado) => `
     <div style="flex:1;min-width:200px">
       <div style="color:var(--verde);letter-spacing:2px;font-size:14px;margin-bottom:8px">${titulo}</div>
       ${[0,1].map((i) => {
         const j = acharJogador(dupla[i]);
-        return `<button class="linha" data-slot="${lado}:${i}" style="border:1px solid var(--borda);border-radius:12px;padding:12px;margin-bottom:8px">
+        return `<div class="mini" style="letter-spacing:1.5px;margin:0 0 4px 4px">${t(i === 0 ? "comeca_direita" : "comeca_esquerda")}</div>
+          <button class="linha" data-slot="${lado}:${i}" style="border:1px solid var(--borda);border-radius:12px;padding:12px;margin-bottom:8px">
           ${j ? avatarHtml(j) : ""}<span>${j ? j.nome : "+ " + t("escolher_jogador")}</span></button>`;
       }).join("")}
+      ${comTroca && dupla[0] && dupla[1] ? `<button class="bt" data-trocar="${lado}">${t("trocar_posicao")}</button>` : ""}
     </div>`;
   $(idContainer).innerHTML = `<div style="display:flex;gap:16px;flex-wrap:wrap">
     ${bloco(t("esquerda"), duplaEsq, "E")}${bloco(t("direita"), duplaDir, "D")}</div>`;
@@ -530,7 +765,14 @@ function slotsHtml(idContainer, duplaEsq, duplaDir) {
 
 function abrirNovoJogo() {
   const render = () => {
-    slotsHtml("slotsNovo", atual.duplaEsq, atual.duplaDir);
+    slotsHtml("slotsNovo", atual.duplaEsq, atual.duplaDir, true);
+    $("slotsNovo").querySelectorAll("[data-trocar]").forEach((b) => {
+      b.addEventListener("click", () => {
+        const d = b.dataset.trocar === "E" ? atual.duplaEsq : atual.duplaDir;
+        const guarda = d[0]; d[0] = d[1]; d[1] = guarda;
+        salvarAtual(); render(); desenhar();
+      });
+    });
     $("slotsNovo").querySelectorAll("[data-slot]").forEach((b) => {
       b.addEventListener("click", () => {
         const [lado, i] = b.dataset.slot.split(":");
@@ -573,7 +815,8 @@ function abrirSubstituicao() {
 function abrirCorrecao() {
   const e = estado();
   let c = { esq: e.pontosEsquerda, dir: e.pontosDireita,
-            sacando: e.sacando, sacador: e.sacador };
+            sacando: e.sacando, sacador: e.sacador, idx: e.indiceSacador };
+  const nomeDaVaga = (i) => curto(duplaDoLado(c.sacando)[i]) || t(i === 0 ? "vaga_a" : "vaga_b");
   const render = () => {
     $("controlesCorrecao").innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0">
@@ -593,25 +836,31 @@ function abrirCorrecao() {
       <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0">
         <span>${t("numero_sacador")}</span>
         <span><button class="bt ${c.sacador===1?"ativo":""}" data-c="s1">1</button>
-        <button class="bt ${c.sacador===2?"ativo":""}" data-c="s2">2</button></span></div>`;
+        <button class="bt ${c.sacador===2?"ativo":""}" data-c="s2">2</button></span></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0">
+        <span>${t("com_a_bola")}</span>
+        <span><button class="bt ${c.idx===0?"ativo":""}" data-c="j0">${esc(nomeDaVaga(0))}</button>
+        <button class="bt ${c.idx===1?"ativo":""}" data-c="j1">${esc(nomeDaVaga(1))}</button></span></div>`;
     $("controlesCorrecao").querySelectorAll("[data-c]").forEach((b) =>
       b.addEventListener("click", () => {
         const a = b.dataset.c;
         if (a === "esq+") c.esq++; if (a === "esq-") c.esq = Math.max(0, c.esq - 1);
         if (a === "dir+") c.dir++; if (a === "dir-") c.dir = Math.max(0, c.dir - 1);
-        if (a === "sacE") c.sacando = ESQ; if (a === "sacD") c.sacando = DIR;
+        // ao trocar a dupla que saca, o palpite e quem esta na direita pelo placar
+        if (a === "sacE" && c.sacando !== ESQ) { c.sacando = ESQ; c.idx = c.esq % 2; }
+        if (a === "sacD" && c.sacando !== DIR) { c.sacando = DIR; c.idx = c.dir % 2; }
+        if (a === "j0") c.idx = 0; if (a === "j1") c.idx = 1;
         if (a === "s1") c.sacador = 1; if (a === "s2") c.sacador = 2;
         render();
       }));
   };
   render();
   $("btAplicarCorrecao").onclick = () => {
-    const anterior = estado();
-    atual.base = { ...anterior, pontosEsquerda: c.esq, pontosDireita: c.dir,
-                   sacando: c.sacando, sacador: c.sacador,
-                   encerrado: false, vencedor: null };
+    // Antes a correcao guardava as posicoes de antes dela, que deixavam de
+    // bater com o jogo quando o placar ou a dupla que saca mudava.
+    atual.base = estadoCorrigido(c.esq, c.dir, c.sacando, c.sacador, c.idx);
     atual.eventos = [];
-    clearTimeout(vozPendente);
+    anunciarCorrecao(atual.base);
     salvarAtual(); fechar("telaCorrigir"); desenhar();
   };
   abrir("telaCorrigir");
@@ -908,18 +1157,23 @@ const MANUAL = {
     ["Starting a game", [
       "Tap the gear at the bottom right, then New game.",
       "Pick the four players and choose which side serves first. You can also play with no names at all.",
+      "The top slot of each team is whoever starts on the right, and that is who serves first. Swap positions fixes it without picking both again.",
       "Games go to 11, win by 2, traditional doubles: only the serving team scores."]],
     ["Scoring", [
       "Tap either half of the screen. Undo is in the footer.",
       "A Bluetooth clicker paired to this device also works: arrow or page keys score, Enter undoes.",
       "Tap the status text in the footer to lock the screen against accidental touches."]],
     ["Reading the screen", [
-      "The band under the numbers shows who serves and the court with all four positions.",
-      "Solid green is the server, green outline is the receiver. They are always diagonal.",
+      "Each half of the screen is one team's side, and each player sits in the service court they are in.",
+      "The server is the big photo with the green ring and the 1 or 2 on it. The receiver has a white ring. They are always diagonal.",
+      "After each point the ball flies from the server to the receiver, then rests with the server.",
+      "Amber instead of green means game point: this point ends the game.",
+      "If the wrong person shows as serving, press and hold their photo: the two partners swap places.",
       "The three small numbers are the official call: server score, receiver score, server number."]],
     ["Voice", [
       "Tap EN or PT in the footer to switch the voice language.",
       "The new server's name is announced whenever the serve changes hands.",
+      "Undo says the score that counts again. At the end it says who won.",
       "Tap the small call at the bottom to repeat the last announcement.",
       "On iPhone and iPad the voice only starts after your first tap on the screen.",
       "Gear, then Voice, to pick which voice speaks and how fast. The list shows whatever voices this device has installed."]],
@@ -944,18 +1198,23 @@ const MANUAL = {
     ["Comecar um jogo", [
       "Toque na engrenagem no canto inferior direito e escolha Novo game.",
       "Escolha os quatro jogadores e quem saca primeiro. Tambem da para jogar sem nome nenhum.",
+      "A vaga de cima de cada dupla e quem comeca na direita, e e quem saca primeiro. Trocar posicoes conserta sem escolher os dois de novo.",
       "Game ate 11, com vantagem de 2, no formato tradicional: so pontua quem saca."]],
     ["Marcar ponto", [
       "Toque em qualquer metade da tela. O desfazer fica no rodape.",
       "Um controle Bluetooth pareado tambem funciona: setas ou teclas de pagina marcam ponto, Enter desfaz.",
       "Toque no texto de status no rodape para travar a tela contra toque acidental."]],
     ["Ler a tela", [
-      "A faixa abaixo dos numeros mostra quem saca e a quadra com as quatro posicoes.",
-      "Verde cheio e quem saca, contorno verde e quem recebe. Eles sempre ficam na diagonal.",
+      "Cada metade da tela e o lado de uma dupla, e cada jogador aparece na quadra de saque em que esta.",
+      "Quem saca e a foto grande com anel verde e o 1 ou 2 em cima. Quem recebe tem anel branco. Os dois sempre ficam na diagonal.",
+      "A cada ponto a bola voa de quem saca ate quem recebe e depois fica com quem saca.",
+      "Ambar no lugar do verde e ponto de jogo: este ponto encerra o game.",
+      "Se a pessoa errada aparecer sacando, segure o dedo na foto dela: os dois parceiros trocam de lugar.",
       "Os tres numeros pequenos sao a chamada oficial: pontos de quem saca, de quem recebe e o numero do sacador."]],
     ["Voz", [
       "Toque em EN ou PT no rodape para trocar o idioma da voz.",
       "O nome de quem assume o saque e anunciado sempre que o saque muda de dupla.",
+      "O desfazer fala o placar que voltou a valer. No fim, a voz diz quem ganhou.",
       "Toque na chamada pequena do rodape para repetir o ultimo anuncio.",
       "No iPhone e no iPad a voz so comeca depois do seu primeiro toque na tela.",
       "Engrenagem e depois Voz, para escolher qual voz fala e a velocidade. A lista mostra as vozes instaladas neste aparelho."]],
@@ -1060,8 +1319,30 @@ $("arquivoBackup").addEventListener("change", (ev) => {
 });
 
 // ---------- eventos ----------
-$("ladoEsq").addEventListener("click", () => { if (!P.travado) marcarPonto(ESQ); });
-$("ladoDir").addEventListener("click", () => { if (!P.travado) marcarPonto(DIR); });
+// Toque em qualquer metade marca o ponto daquela dupla. Toque longo numa foto
+// troca os parceiros daquela dupla, para quando alguem diz "nao sou eu que saco".
+let pressaoLonga = null, foiLongo = false;
+$("palco").addEventListener("pointerdown", (ev) => {
+  foiLongo = false;
+  const g = naGrade(ev);
+  clearTimeout(pressaoLonga);
+  pressaoLonga = setTimeout(() => {
+    const e = estado(), q = montarQuadra(e);
+    const v = q.vagas.find((x) => Math.hypot(g.x - x.x, g.y - x.y) <= diametroDe(x, q, e) / 2 + 24);
+    if (!v) return;
+    foiLongo = true;
+    if (navigator.vibrate) navigator.vibrate(30);
+    trocarParceiros(v.lado);
+  }, 550);
+});
+["pointerup", "pointercancel", "pointerleave"].forEach((tipo) =>
+  $("palco").addEventListener(tipo, () => clearTimeout(pressaoLonga)));
+$("palco").addEventListener("contextmenu", (ev) => ev.preventDefault());
+$("palco").addEventListener("click", (ev) => {
+  if (foiLongo) { foiLongo = false; return; }
+  if (P.travado) return;
+  marcarPonto(naGrade(ev).x < PALCO_L / 2 ? ESQ : DIR);
+});
 $("btDesfazer").addEventListener("click", desfazer);
 $("chamada").addEventListener("click", () => { liberarVoz(); falarAgora(ultimaFala); });
 $("estadoTrava").addEventListener("click", () => { P.travado = !P.travado; gravar(CHAVES.prefs, P); desenhar(); });

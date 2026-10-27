@@ -66,8 +66,42 @@ class Voz(private val contexto: Context) {
      * A fala sai com atraso. Se o ponto for desfeito nesse intervalo,
      * o placar errado nunca chega a ser falado.
      */
-    fun anunciar(anterior: EstadoJogo, novo: EstadoJogo, nomeSacador: String = "") {
-        val texto = montarFrase(anterior, novo, nomeSacador)
+    fun anunciar(
+        anterior: EstadoJogo,
+        novo: EstadoJogo,
+        nomeSacador: String = "",
+        nomesVencedores: String = ""
+    ) {
+        val texto = montarFrase(anterior, novo, nomeSacador, nomesVencedores)
+        ultimaFala = texto
+        agendar(texto)
+    }
+
+    /**
+     * Desfazer fala o placar que voltou a valer.
+     *
+     * Antes o desfazer era mudo, e quem estava na quadra so descobria o placar
+     * certo olhando para o tablet. Se o ponto desfeito ainda nao tinha sido
+     * falado, nada e dito: o placar errado nunca chegou a ninguem.
+     */
+    fun anunciarDesfazer(antes: EstadoJogo, depois: EstadoJogo, nomeSacador: String) {
+        val aindaNaoFalou = pendente != null
+        cancelarPendente()
+        if (aindaNaoFalou) return
+        val partes = mutableListOf(termo("correction"), chamadaFalada(depois))
+        val trocouSacador = depois.sacando != antes.sacando || depois.indiceSacador != antes.indiceSacador
+        if (trocouSacador && nomeSacador.isNotBlank()) partes.add(anuncioDeSacador(nomeSacador))
+        val texto = partes.joinToString(", ")
+        ultimaFala = texto
+        agendar(texto)
+    }
+
+    /** Correcao manual: sempre fala o placar novo e quem saca, porque tudo recomeca dali. */
+    fun anunciarCorrecao(estado: EstadoJogo, nomeSacador: String) {
+        cancelarPendente()
+        val partes = mutableListOf(termo("correction"), chamadaFalada(estado))
+        if (nomeSacador.isNotBlank()) partes.add(anuncioDeSacador(nomeSacador))
+        val texto = partes.joinToString(", ")
         ultimaFala = texto
         agendar(texto)
     }
@@ -105,7 +139,10 @@ class Voz(private val contexto: Context) {
 
     private fun agendar(texto: String) {
         cancelarPendente()
-        val tarefa = Runnable { falarAgora(texto) }
+        val tarefa = Runnable {
+            pendente = null
+            falarAgora(texto)
+        }
         pendente = tarefa
         executor.postDelayed(tarefa, ATRASO_MS)
     }
@@ -132,14 +169,13 @@ class Voz(private val contexto: Context) {
     private fun montarFrase(
         anterior: EstadoJogo,
         novo: EstadoJogo,
-        nomeSacador: String
+        nomeSacador: String,
+        nomesVencedores: String
     ): String {
         val partes = mutableListOf<String>()
 
         if (novo.encerrado) {
-            partes.add(termo("game"))
-            partes.add(chamadaFalada(novo))
-            return partes.joinToString(", ")
+            return fraseDeFim(novo, nomesVencedores)
         }
 
         if (novo.sacando != anterior.sacando && anunciarSideOut) partes.add(termo("side_out"))
@@ -157,6 +193,22 @@ class Voz(private val contexto: Context) {
         return partes.joinToString(", ")
     }
 
+    /**
+     * "Game. Mike and Sarah win, 11 to 7." O placar sai na ordem de quem venceu.
+     * Sem nomes cadastrados, fica so o termo e o placar.
+     */
+    private fun fraseDeFim(estado: EstadoJogo, nomes: String): String {
+        val vencedor = estado.vencedor ?: estado.sacando
+        val deles = estado.pontosDe(vencedor)
+        val outros = estado.pontosDe(vencedor.oposto())
+        return when (idioma) {
+            Textos.PT -> if (nomes.isBlank()) "${termo("game")}. $deles a $outros"
+                else "${termo("game")}. Vitória de $nomes, $deles a $outros"
+            else -> if (nomes.isBlank()) "${termo("game")}. $deles to $outros"
+                else "${termo("game")}. $nomes win, $deles to $outros"
+        }
+    }
+
     private fun anuncioDeSacador(nome: String): String = when (idioma) {
         Textos.PT -> "saque de $nome"
         else -> "$nome to serve"
@@ -171,12 +223,14 @@ class Voz(private val contexto: Context) {
             "side_out" -> "sáid aut"
             "game_point" -> "guêimi point"
             "game" -> "guêimi"
+            "correction" -> "correção"
             else -> chave
         }
         else -> when (chave) {
             "side_out" -> "side out"
             "game_point" -> "game point"
             "game" -> "game"
+            "correction" -> "correction"
             else -> chave
         }
     }

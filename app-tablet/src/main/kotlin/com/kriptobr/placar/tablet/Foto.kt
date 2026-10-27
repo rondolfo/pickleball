@@ -68,9 +68,11 @@ object Foto {
 
     /** Cor estavel a partir do nome, para o circulo de iniciais. */
     fun corDe(texto: String): Long {
+        // Sem o verde de quem saca, sem o ambar do ponto de jogo e sem verde
+        // oliva: um circulo dessas cores sumia dentro do proprio anel de destaque.
         val paleta = listOf(
-            0xFF97C459, 0xFFEF9F27, 0xFF6BA6D6, 0xFFD07A9E,
-            0xFF9B8ADB, 0xFF4FB3A5, 0xFFD4694A, 0xFF8FA33E
+            0xFF6BA6D6, 0xFFD07A9E, 0xFF9B8ADB, 0xFF4FB3A5,
+            0xFFD4694A, 0xFF7F8FA6, 0xFFA97C5B, 0xFFC8B68E
         )
         val indice = (texto.hashCode().toLong() and 0x7FFFFFFF) % paleta.size
         return paleta[indice.toInt()]

@@ -113,6 +113,11 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        // Brilho no maximo so enquanto o placar esta na frente. O tablet fica
+        // na tomada e e lido de longe; ao sair do aplicativo, volta ao normal.
+        window.attributes = window.attributes.apply {
+            screenBrightness = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_FULL
+        }
         WindowCompat.setDecorFitsSystemWindows(window, false)
         WindowInsetsControllerCompat(window, window.decorView).apply {
             hide(WindowInsetsCompat.Type.systemBars())
@@ -177,10 +182,10 @@ class MainActivity : ComponentActivity() {
 
             TelaPlacar(
                 estado = estado,
-                nomeEsquerda = nomeDoLado(Lado.ESQUERDA),
-                nomeDireita = nomeDoLado(Lado.DIREITA),
-                nomeSacador = nomeDoSacador(estado),
-                posicoes = posicoesDaQuadra(estado),
+                duplaEsquerda = duplaEsquerda,
+                duplaDireita = duplaDireita,
+                jogadores = jogadores.toList(),
+                versaoFotos = versaoFotos,
                 idiomaUi = idiomaUi,
                 idiomaVoz = idiomaVoz,
                 conectado = clientes + clientesBle > 0,
@@ -191,7 +196,8 @@ class MainActivity : ComponentActivity() {
                 onDestravar = { destravar() },
                 onAbrirMenu = { menuAberto = true },
                 onTrocarIdiomaVoz = { trocarIdiomaVoz() },
-                onRepetir = { voz.repetir() }
+                onRepetir = { voz.repetir() },
+                onTrocarParceiros = { lado -> trocarParceiros(lado) }
             )
 
             if (menuAberto) {
@@ -348,15 +354,12 @@ class MainActivity : ComponentActivity() {
             if (telaCorrecao) {
                 TelaCorrecao(
                     estadoAtual = estadoAtual(),
+                    duplaEsquerda = duplaEsquerda,
+                    duplaDireita = duplaDireita,
+                    jogadores = jogadores.toList(),
                     idiomaUi = idiomaUi,
                     onAplicar = { corrigido ->
-                        aplicarCorrecao(
-                            corrigido.copy(
-                                naDireitaEsquerda = estadoAtual().naDireitaEsquerda,
-                                naDireitaDireita = estadoAtual().naDireitaDireita,
-                                indiceSacador = estadoAtual().indiceSacador
-                            )
-                        )
+                        aplicarCorrecao(corrigido)
                         telaCorrecao = false
                     },
                     onFechar = { telaCorrecao = false }
@@ -561,7 +564,12 @@ class MainActivity : ComponentActivity() {
             eventos.add(Evento(id = id, vencedor = vencedor, origem = origem, ts = agora))
             val novo = estadoAtual()
 
-            voz.anunciar(anterior, novo, nomeDoSacador(novo))
+            voz.anunciar(
+                anterior,
+                novo,
+                nomeDoSacador(novo),
+                novo.vencedor?.let { nomesFalados(it) } ?: ""
+            )
             transmitirEstado()
             salvarAndamento()
 
@@ -571,8 +579,10 @@ class MainActivity : ComponentActivity() {
 
     private fun desfazer() {
         if (eventos.isEmpty()) return
-        voz.cancelarPendente()
+        val antes = estadoAtual()
         val removido = eventos.removeAt(eventos.lastIndex)
+        val depois = estadoAtual()
+        voz.anunciarDesfazer(antes, depois, nomeDoSacador(depois))
         idsVistos.remove(removido.id)
         partidaEncerrada = null
         transmitirEstado()
@@ -580,10 +590,10 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun aplicarCorrecao(corrigido: EstadoJogo) {
-        voz.cancelarPendente()
         estadoBase = corrigido
         eventos.clear()
         idsVistos.clear()
+        voz.anunciarCorrecao(corrigido, nomeDoSacador(corrigido))
         partidaEncerrada = null
         transmitirEstado()
         salvarAndamento()
@@ -635,18 +645,37 @@ class MainActivity : ComponentActivity() {
         salvarAndamento()
     }
 
+    /**
+     * Troca os dois parceiros de lugar, sem mexer no placar.
+     *
+     * O aplicativo sabe quem saca porque sabe quem comecou na direita. Se a
+     * dupla se posicionou ao contrario do que esta no tablet, a pessoa errada
+     * aparece como sacador. Trocar os dois conserta posicao e sacador juntos.
+     */
+    private fun trocarParceiros(lado: Lado) {
+        val antes = estadoAtual()
+        val nomeAntes = nomeDoSacador(antes)
+        if (lado == Lado.ESQUERDA) {
+            duplaEsquerda = duplaEsquerda.copy(a = duplaEsquerda.b, b = duplaEsquerda.a)
+        } else {
+            duplaDireita = duplaDireita.copy(a = duplaDireita.b, b = duplaDireita.a)
+        }
+        escalacoes.add(Escalacao(System.currentTimeMillis(), duplaEsquerda, duplaDireita))
+        val nomeDepois = nomeDoSacador(antes)
+        if (nomeDepois != nomeAntes) voz.anunciarCorrecao(antes, nomeDepois)
+        transmitirEstado()
+        salvarAndamento()
+    }
+
     private fun inverterLados() {
         val espelhados = eventos.map { it.copy(vencedor = it.vencedor.oposto()) }
         eventos.clear()
         eventos.addAll(espelhados)
         primeiroSaque = primeiroSaque.oposto()
-        estadoBase = estadoBase?.let { base ->
-            base.copy(
-                pontosEsquerda = base.pontosDireita,
-                pontosDireita = base.pontosEsquerda,
-                sacando = base.sacando.oposto()
-            )
-        }
+        // As posicoes da base trocam junto com o placar. Antes so o placar e
+        // o saque trocavam, o que so dava certo enquanto as duas duplas tinham
+        // a mesma posicao.
+        estadoBase = estadoBase?.let { Regras.espelhar(it) }
         val guardada = duplaEsquerda
         duplaEsquerda = duplaDireita
         duplaDireita = guardada
@@ -734,24 +763,11 @@ class MainActivity : ComponentActivity() {
         )
     }
 
-    /**
-     * Resolve quem esta em cada uma das quatro quadras de servico.
-     */
-    private fun posicoesDaQuadra(estado: EstadoJogo): PosicoesQuadra {
-        fun nome(dupla: Dupla, indice: Int, alternativo: String): String {
-            val id = if (indice == 0) dupla.a else dupla.b
-            return jogadores.firstOrNull { it.id == id }?.curto ?: alternativo
-        }
-
-        val naDirEsq = estado.naDireitaEsquerda
-        val naDirDir = estado.naDireitaDireita
-
-        return PosicoesQuadra(
-            esqNaDireita = nome(duplaEsquerda, naDirEsq, "1"),
-            esqNaEsquerda = nome(duplaEsquerda, 1 - naDirEsq, "2"),
-            dirNaDireita = nome(duplaDireita, naDirDir, "1"),
-            dirNaEsquerda = nome(duplaDireita, 1 - naDirDir, "2")
-        )
+    /** "Mike and Sarah" para a voz. O "&" da tela vira palavra no idioma da voz. */
+    private fun nomesFalados(lado: Lado): String {
+        val dupla = if (lado == Lado.ESQUERDA) duplaEsquerda else duplaDireita
+        val nomes = dupla.ids.mapNotNull { id -> jogadores.firstOrNull { it.id == id }?.curto }
+        return nomes.joinToString(if (idiomaVoz == Textos.PT) " e " else " and ")
     }
 
     private fun nomeDoLado(lado: Lado): String {

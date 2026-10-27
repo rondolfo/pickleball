@@ -27,6 +27,7 @@ object Manual {
             listOf(
                 "Tap the gear at the bottom right, then New game.",
                 "Pick the four players and choose which side serves first. You can also play with no names at all.",
+                "The top slot of each team is whoever starts on the right, and that is who serves first. Swap positions fixes it without picking both again.",
                 "Games go to 11, win by 2, traditional doubles scoring: only the serving team scores."
             )
         ),
@@ -42,9 +43,11 @@ object Manual {
         SecaoManual(
             "Reading the screen",
             listOf(
-                "The two large numbers are the score. The green frame marks who is serving.",
-                "The band underneath shows who serves, from which side, and the court diagram with all four positions.",
-                "In the diagram, solid green is the server and the green outline is the receiver. They are always diagonal.",
+                "Each half of the screen is one team's side. Each player sits in the service court they are in right now.",
+                "The server is the big photo with the green ring and the 1 or 2 on it. The receiver has a white ring. They are always diagonal.",
+                "After each point the ball flies from the server to the receiver, then rests with the server.",
+                "Amber instead of green means game point: this point ends the game.",
+                "If the wrong person shows as serving, press and hold their photo: the two partners swap places and the score stays.",
                 "The small three numbers at the bottom are the official call: server score, receiver score, server number."
             )
         ),
@@ -54,6 +57,7 @@ object Manual {
                 "The tablet calls the score after every point, with a short delay so an undo never speaks a wrong score.",
                 "Tap EN or PT in the footer to switch the voice language instantly.",
                 "The name of the new server is announced whenever the serve changes hands.",
+                "Undo says the score that counts again. At the end of the game the voice says who won.",
                 "Tap the small call at the bottom to repeat the last announcement.",
                 "If a language is missing, install it in Android settings under Text to speech."
             )
@@ -81,7 +85,7 @@ object Manual {
             listOf(
                 "Substitute a player: gear, then Substitute. The score does not change and both players count as having played.",
                 "Swap sides: gear, then Swap sides, or long press the score line on the watch. Use it whenever you change ends.",
-                "Fix the score: gear, then Fix the score. Undo will not go back past a manual correction."
+                "Fix the score: gear, then Fix the score. Set both scores, the serving team, the server number and who has the ball. Undo will not go back past a manual correction."
             )
         ),
         SecaoManual(
@@ -127,6 +131,7 @@ object Manual {
             listOf(
                 "Toque na engrenagem no canto inferior direito e escolha Novo game.",
                 "Escolha os quatro jogadores e quem saca primeiro. Tambem da para jogar sem nome nenhum.",
+                "A vaga de cima de cada dupla e quem comeca na direita, e e quem saca primeiro. Trocar posicoes conserta sem escolher os dois de novo.",
                 "Game ate 11, com vantagem de 2, no formato tradicional: so pontua quem saca."
             )
         ),
@@ -142,9 +147,11 @@ object Manual {
         SecaoManual(
             "Ler a tela",
             listOf(
-                "Os dois numeros grandes sao o placar. A moldura verde marca quem esta sacando.",
-                "A faixa de baixo mostra quem saca, de que lado, e o desenho da quadra com as quatro posicoes.",
-                "No desenho, verde cheio e quem saca e contorno verde e quem recebe. Eles sempre ficam na diagonal.",
+                "Cada metade da tela e o lado de uma dupla. Cada jogador aparece na quadra de saque em que esta agora.",
+                "Quem saca e a foto grande com anel verde e o 1 ou 2 em cima. Quem recebe tem anel branco. Os dois sempre ficam na diagonal.",
+                "A cada ponto a bola voa de quem saca ate quem recebe e depois fica com quem saca.",
+                "Ambar no lugar do verde e ponto de jogo: este ponto encerra o game.",
+                "Se a pessoa errada aparecer sacando, segure o dedo na foto dela: os dois parceiros trocam de lugar e o placar fica igual.",
                 "Os tres numeros pequenos embaixo sao a chamada oficial: pontos de quem saca, pontos de quem recebe, numero do sacador."
             )
         ),
@@ -154,6 +161,7 @@ object Manual {
                 "O tablet fala o placar depois de cada ponto, com um atraso curto para que um desfazer nunca chegue a falar placar errado.",
                 "Toque em EN ou PT no rodape para trocar o idioma da voz na hora.",
                 "O nome de quem assume o saque e anunciado sempre que o saque muda de dupla.",
+                "O desfazer fala o placar que voltou a valer. No fim do game, a voz diz quem ganhou.",
                 "Toque na chamada pequena do rodape para repetir o ultimo anuncio.",
                 "Se faltar algum idioma, instale nas configuracoes do Android, em conversao de texto em fala."
             )
@@ -181,7 +189,7 @@ object Manual {
             listOf(
                 "Substituir jogador: engrenagem e depois Substituir. O placar nao muda e os dois contam como tendo jogado.",
                 "Inverter lados: engrenagem e depois Inverter, ou toque longo na linha do placar no relogio. Use sempre que trocarem de ponta.",
-                "Corrigir o placar: engrenagem e depois Corrigir. O desfazer nao volta alem de uma correcao manual."
+                "Corrigir o placar: engrenagem e depois Corrigir. Informe os dois placares, a dupla que saca, o numero do sacador e quem esta com a bola. O desfazer nao volta alem de uma correcao manual."
             )
         ),
         SecaoManual(

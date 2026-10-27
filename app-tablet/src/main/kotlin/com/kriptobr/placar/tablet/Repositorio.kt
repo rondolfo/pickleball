@@ -10,6 +10,7 @@ import com.kriptobr.placar.core.Origem
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import java.io.IOException
 
 /**
  * Persistencia em arquivos JSON dentro do proprio aplicativo.
@@ -33,11 +34,67 @@ class Repositorio(private val contexto: Context) {
 
     fun arquivoFoto(idJogador: String): File = File(pastaFotos, "$idJogador.jpg")
 
+    // ---------- gravacao segura ----------
+
+    /**
+     * Grava num arquivo temporario e so depois troca pelo definitivo.
+     *
+     * Antes cada arquivo era reescrito no lugar. Se o tablet desligasse no
+     * meio de uma gravacao da lista de jogadores, o arquivo ficava pela
+     * metade, a leitura seguinte devolvia uma lista vazia, e a proxima
+     * gravacao salvava essa lista vazia por cima: o cadastro inteiro sumia.
+     * A troca por nome e atomica no Android: ou fica o arquivo velho inteiro,
+     * ou o novo inteiro, nunca um pedaco.
+     *
+     * Para os cadastros, a versao anterior tambem fica guardada em .bak.
+     */
+    private fun gravarSeguro(destino: File, conteudo: String, manterCopia: Boolean) {
+        val pasta = destino.parentFile ?: base
+        val temporario = File(pasta, destino.name + ".tmp")
+        temporario.outputStream().use { saida ->
+            saida.write(conteudo.toByteArray(Charsets.UTF_8))
+            saida.fd.sync()
+        }
+        if (manterCopia && destino.exists()) {
+            runCatching { destino.copyTo(copiaDe(destino), overwrite = true) }
+        }
+        if (!temporario.renameTo(destino)) {
+            destino.delete()
+            if (!temporario.renameTo(destino)) {
+                throw IOException("nao foi possivel substituir ${destino.name}")
+            }
+        }
+    }
+
+    private fun copiaDe(arquivo: File): File = File(arquivo.parentFile ?: base, arquivo.name + ".bak")
+
+    /**
+     * Le o arquivo principal e, se ele estiver estragado, a copia anterior.
+     *
+     * Um arquivo que nao abre e guardado com outro nome antes de qualquer
+     * coisa, para a proxima gravacao nao apagar o que ainda daria para
+     * recuperar a mao.
+     */
+    private fun <T> lerComReserva(arquivo: File, ler: (String) -> T): T? {
+        for (candidato in listOf(arquivo, copiaDe(arquivo))) {
+            if (!candidato.exists()) continue
+            val resultado = runCatching { ler(candidato.readText()) }
+            if (resultado.isSuccess) return resultado.getOrNull()
+            Log.w(TAG, "arquivo ilegivel: ${candidato.name}: ${resultado.exceptionOrNull()?.message}")
+            runCatching {
+                candidato.copyTo(
+                    File(candidato.parentFile ?: base, "${candidato.name}.ilegivel-${System.currentTimeMillis()}"),
+                    overwrite = false
+                )
+            }
+        }
+        return null
+    }
+
     // ---------- jogadores ----------
 
-    fun carregarJogadores(): List<Jogador> = runCatching {
-        if (!arquivoJogadores.exists()) return emptyList()
-        val lista = JSONArray(arquivoJogadores.readText())
+    fun carregarJogadores(): List<Jogador> = lerComReserva(arquivoJogadores) { texto ->
+        val lista = JSONArray(texto)
         (0 until lista.length()).map { indice ->
             val objeto = lista.getJSONObject(indice)
             Jogador(
@@ -49,10 +106,7 @@ class Repositorio(private val contexto: Context) {
                 temFoto = objeto.optBoolean("temFoto", false)
             )
         }
-    }.getOrElse {
-        Log.w(TAG, "falha ao ler jogadores: ${it.message}")
-        emptyList()
-    }
+    } ?: emptyList()
 
     fun salvarJogadores(lista: List<Jogador>) {
         runCatching {
@@ -67,7 +121,7 @@ class Repositorio(private val contexto: Context) {
                     put("temFoto", jogador.temFoto)
                 })
             }
-            arquivoJogadores.writeText(array.toString())
+            gravarSeguro(arquivoJogadores, array.toString(), manterCopia = true)
         }.onFailure { Log.e(TAG, "falha ao salvar jogadores: ${it.message}") }
     }
 
@@ -75,8 +129,11 @@ class Repositorio(private val contexto: Context) {
 
     fun salvarPartida(partida: Partida) {
         runCatching {
-            File(pastaPartidas, "${partida.inicio}-${partida.id}.json")
-                .writeText(paraJson(partida).toString())
+            gravarSeguro(
+                File(pastaPartidas, "${partida.inicio}-${partida.id}.json"),
+                paraJson(partida).toString(),
+                manterCopia = false
+            )
         }.onFailure { Log.e(TAG, "falha ao salvar partida: ${it.message}") }
     }
 
@@ -91,7 +148,7 @@ class Repositorio(private val contexto: Context) {
     }.getOrDefault(emptyList())
 
     fun salvarAtual(partida: Partida) {
-        runCatching { arquivoAtual.writeText(paraJson(partida).toString()) }
+        runCatching { gravarSeguro(arquivoAtual, paraJson(partida).toString(), manterCopia = false) }
     }
 
     fun carregarAtual(): Partida? = runCatching {
@@ -105,9 +162,8 @@ class Repositorio(private val contexto: Context) {
 
     // ---------- rodizio ----------
 
-    fun carregarRodizio(): Pair<MemoriaRodizio, Set<String>> = runCatching {
-        if (!arquivoRodizio.exists()) return MemoriaRodizio() to emptySet()
-        val objeto = JSONObject(arquivoRodizio.readText())
+    fun carregarRodizio(): Pair<MemoriaRodizio, Set<String>> = lerComReserva(arquivoRodizio) { texto ->
+        val objeto = JSONObject(texto)
 
         val ultima = mutableMapOf<String, Int>()
         objeto.optJSONObject("ultima")?.let { mapa ->
@@ -139,7 +195,7 @@ class Repositorio(private val contexto: Context) {
             ultimoParceiro = parceiro,
             ultimosAdversarios = adversarios
         ) to presentes
-    }.getOrDefault(MemoriaRodizio() to emptySet())
+    } ?: (MemoriaRodizio() to emptySet())
 
     fun salvarRodizio(memoria: MemoriaRodizio, presentes: Set<String>) {
         runCatching {
@@ -155,7 +211,7 @@ class Repositorio(private val contexto: Context) {
                 })
                 put("presentes", JSONArray(presentes.toList()))
             }
-            arquivoRodizio.writeText(objeto.toString())
+            gravarSeguro(arquivoRodizio, objeto.toString(), manterCopia = true)
         }.onFailure { Log.e(TAG, "falha ao salvar rodizio: ${it.message}") }
     }
 

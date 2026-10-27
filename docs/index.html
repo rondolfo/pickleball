@@ -15,32 +15,13 @@
 <body>
 
 <div id="placar">
-  <div class="numeros">
-    <button class="lado" id="ladoEsq">
-      <span class="nome" id="nomeEsq">LEFT</span>
-      <span class="pts" id="ptsEsq">0</span>
-    </button>
-    <button class="lado" id="ladoDir">
-      <span class="nome" id="nomeDir">RIGHT</span>
-      <span class="pts" id="ptsDir">0</span>
-    </button>
-  </div>
-
-  <div class="faixa">
-    <div class="quem">
-      <div class="sacador" id="sacadorNome">LEFT</div>
-      <div class="detalhe" id="sacadorDetalhe">SERVE RIGHT . SERVER 2</div>
-    </div>
-    <div class="quadra">
-      <div class="meia">
-        <div class="quadrante" id="qEsqEsq">1</div>
-        <div class="quadrante" id="qEsqDir">2</div>
-      </div>
-      <div class="rede"></div>
-      <div class="meia">
-        <div class="quadrante" id="qDirDir">1</div>
-        <div class="quadrante" id="qDirEsq">2</div>
-      </div>
+  <!-- A tela inteira e a quadra: cada dupla num lado, cada jogador na quadra
+       em que esta. O desenho e feito numa grade de 1280 por 754 e escalado. -->
+  <div id="palcoMoldura">
+    <div id="palco" role="img" aria-label="Scoreboard">
+      <svg id="raia" width="1280" height="754" viewBox="0 0 1280 754" aria-hidden="true"></svg>
+      <div id="camada"></div>
+      <div id="efeitos" aria-hidden="true"></div>
     </div>
   </div>
 
@@ -82,7 +63,8 @@
     <div class="cabecalho"><h2 id="tNovoJogo">Start a game</h2>
       <button class="bt" data-fechar="telaNovoJogo">Close</button></div>
     <div id="slotsNovo"></div>
-    <p style="text-align:center;font-size:18px;margin:18px 0 6px" id="tQuemSaca">Who serves first?</p>
+    <p style="text-align:center;font-size:18px;margin:18px 0 2px" id="tQuemSaca">Who serves first?</p>
+    <p class="mini" style="text-align:center;margin:0 0 6px" id="tSacaQuemDireita">Whoever starts on the right serves first</p>
     <div class="acoes">
       <button class="bt ok" id="comecarEsq">LEFT</button>
       <button class="bt ok" id="comecarDir">RIGHT</button>

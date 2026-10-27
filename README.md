@@ -229,3 +229,55 @@ A tela de montar duplas agora remove da lista quem ja esta em outro lugar da qua
 - Ponto de jogo pinta esse lado de ambar em vez de verde. Como so a dupla que saca pode pontuar, o ponto de jogo e sempre dela. O rodape continua escrevendo ponto de jogo, entao a informacao nao depende da cor
 - As linhas do ranking viraram cartoes, que juntam o nome da esquerda com os numeros da direita. Em tela larga eles flutuavam soltos nas duas pontas
 - Cabecalho das telas com regra fina abaixo do titulo
+
+## Placar na quadra, na versao 1.1
+
+O tablet fica na mesa e o grupo esta na quadra, a ate 9 metros. Dessa distancia, so se le o que tem varios centimetros de altura: os numeros e as cores. O nome do sacador e o desenho da quadra da versao anterior tinham menos de 1 cm e viravam borrao. A versao 1.1 redesenha o placar em torno disso. O desenho foi testado antes num prototipo de navegador, o Placar na Quadra, com simulacao de distancia.
+
+### O que aparece
+
+- A faixa de baixo saiu. Cada metade da tela e o lado de uma dupla, e cada jogador aparece na quadra de saque em que esta
+- Quem saca: foto grande, anel verde com brilho e o numero 1 ou 2 em cima da foto
+- Quem recebe: anel branco, sempre na diagonal de quem saca
+- A cada ponto, a bola voa de quem saca ate quem recebe e volta a ficar com quem saca. Uma linha pontilhada marca a diagonal
+- Ponto de jogo pinta a dupla que saca de ambar, com GAME POINT escrito no alto
+- No fim do game, os vencedores ficam com anel verde e GAME no alto
+- Os numeros usam fonte condensada, mais alta no mesmo espaco. Com dois digitos, encolhem so o necessario para caber
+
+Jogador sem foto continua aparecendo como circulo colorido com as iniciais. A paleta desses circulos deixou de usar o verde e o ambar, que sao as cores de destaque: um circulo verde sumia dentro do proprio anel verde. Um respiro preto separa o anel da foto, para o anel aparecer sobre qualquer imagem.
+
+### Quem saca, e como consertar
+
+O aplicativo sabe quem saca porque sabe quem comecou o jogo na quadra da direita. A tela de novo jogo agora diz isso com todas as letras: a vaga de cima e quem comeca na direita, e um botao troca os dois de lugar.
+
+Se no meio do jogo a pessoa errada aparecer sacando, segure o dedo na foto dela por meio segundo. Os dois parceiros trocam de lugar, o placar fica igual, e a voz anuncia quem saca.
+
+### Correcao do placar
+
+A correcao guardava as posicoes dos jogadores de antes dela. Se a correcao mudava o placar de uma dupla ou a dupla que saca, essas posicoes deixavam de bater com o jogo, e o aplicativo passava a apontar o sacador errado e o lado errado do saque.
+
+Agora as posicoes vem do proprio placar. Um parceiro so troca de lado quando a dupla dele pontua sacando, entao quem comecou na direita esta na direita sempre que o placar da dupla e par. O que o placar nao diz e quem esta com a bola, e a tela de correcao passou a perguntar isso.
+
+Inverter lados depois de uma correcao tambem espelha as posicoes, e nao so o placar.
+
+As duas coisas foram testadas em 3.000 jogos sorteados, no nucleo do Android e na versao web: a posicao bate com a paridade em todos os estados, corrigir em qualquer ponto reproduz o jogo exato, continuar da correcao da o mesmo resultado que continuar pelo historico, e inverter funciona nos dois casos.
+
+### Voz
+
+- Desfazer fala o placar que voltou a valer: "correction, 5, 4, 2". Se o ponto desfeito ainda nao tinha sido falado, nada e dito
+- No fim do game: "Game. Mike and Sarah win, 11 to 7", ou "Vitoria de Mike e Sarah, 11 a 7" em portugues
+- Correcao manual e troca de parceiros falam o placar e quem saca
+
+### Outras mudancas
+
+- Brilho no maximo enquanto o placar esta na frente. Ao sair do aplicativo, volta ao normal
+- Gravacao segura: cada arquivo e gravado num temporario e so depois troca de nome. Antes, se o tablet desligasse no meio da gravacao da lista de jogadores, a lista podia ficar pela metade e a gravacao seguinte salvava uma lista vazia por cima. Os cadastros tambem guardam a versao anterior em .bak, usada se o principal nao abrir
+- Acoes do GitHub em Node 24: checkout v5, setup-java v5, upload-artifact v6 e setup-gradle v5. O setup-gradle ficou na v5 de proposito, porque a v6 muda os termos de uso do cache da Gradle
+
+### Versao web
+
+Mesmo placar, mesma correcao, mesma troca de parceiros com o dedo segurado na foto e mesma voz. No iPad, que e mais quadrado que um tablet Android, o placar cresce na altura em vez de deixar faixas pretas. O cache do aplicativo web mudou de versao, entao quem ja tem a pagina instalada recebe a nova na proxima abertura com internet.
+
+### O relogio
+
+Nada mudou no relogio nesta versao. Nao precisa reinstalar.
